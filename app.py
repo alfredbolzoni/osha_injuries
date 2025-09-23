@@ -10,26 +10,31 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
+import requests
 
 # ==============================
 # DB Connection / Query helper
 # ==============================
 @st.cache_data(show_spinner=False, ttl=600)
-def run_query(query: str, params=None) -> pd.DataFrame:
-    conn = psycopg2.connect(
-        host=st.secrets["postgres"]["host"],
-        port=st.secrets["postgres"]["port"],
-        dbname=st.secrets["postgres"]["dbname"],
-        user=st.secrets["postgres"]["user"],
-        password=st.secrets["postgres"]["password"],
-        sslmode="require"  # Supabase richiede SSL
-    )
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute(query, params or [])
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
-    return pd.DataFrame(rows)
+def run_query(table: str, select: str = "*", filters: dict = None) -> pd.DataFrame:
+    url = f"{st.secrets['supabase']['url']}/rest/v1/{table}"
+    headers = {
+        "apikey": st.secrets["supabase"]["key"],
+        "Authorization": f"Bearer {st.secrets['supabase']['key']}"
+    }
+    params = {"select": select}
+
+    # Aggiungi filtri dinamici
+    if filters:
+        for col, val in filters.items():
+            params[col] = f"eq.{val}"
+
+    r = requests.get(url, headers=headers, params=params)
+    if r.status_code != 200:
+        st.error(f"❌ Supabase API error: {r.text}")
+        return pd.DataFrame()
+
+    return pd.DataFrame(r.json())
 
 # ==============================
 # Page Config
