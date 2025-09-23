@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.db
+.venv/
+
+# VS Code
+.vscode/
+
+# Data
+data/
+*.csv
+
+# Streamlit
+.streamlit/secrets.toml
