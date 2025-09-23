@@ -17,11 +17,12 @@ from reportlab.lib.styles import getSampleStyleSheet
 @st.cache_data(show_spinner=False, ttl=600)
 def run_query(query: str, params=None) -> pd.DataFrame:
     conn = psycopg2.connect(
-        dbname="osha",
-        user="postgres",          # change if needed
-        password="alfred1993",    # change to your password
-        host="localhost",
-        port=5433
+        host=st.secrets["postgres"]["host"],
+        port=st.secrets["postgres"]["port"],
+        dbname=st.secrets["postgres"]["dbname"],
+        user=st.secrets["postgres"]["user"],
+        password=st.secrets["postgres"]["password"],
+        sslmode="require"  # Supabase richiede SSL
     )
     cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute(query, params or [])
