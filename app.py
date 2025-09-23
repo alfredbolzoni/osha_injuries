@@ -132,7 +132,9 @@ def load_incidents() -> pd.DataFrame:
 df_regions = load_regions()
 df_sectors = load_sectors()
 df_inc = load_incidents()
-st.write("Sample raw years from DB:", df_inc["year"].dropna().unique()[:20])
+st.subheader("🔎 Debug: Years from Supabase")
+st.write(df_inc[["year"]].dropna().head(50))
+st.write("Unique values:", df_inc["year"].dropna().unique().tolist())
 
 # Derived safeframes
 def incidents_with_state() -> pd.DataFrame:
