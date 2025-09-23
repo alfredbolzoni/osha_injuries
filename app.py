@@ -84,6 +84,8 @@ def load_incidents() -> pd.DataFrame:
 df_regions = load_regions()
 df_sectors = load_sectors()
 df_inc = load_incidents()
+st.write("Unique years in incidents:", sorted(df_inc["year"].dropna().unique().tolist()))
+st.write("Rows loaded:", len(df_inc))
 
 # Derived safeframes
 def incidents_with_state() -> pd.DataFrame:
