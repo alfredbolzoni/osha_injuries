@@ -30,8 +30,7 @@ def _sb_headers():
 @st.cache_data(show_spinner=False, ttl=600)
 def sb_select(table: str, select: str = "*", filters: dict | None = None, limit: int | None = None) -> pd.DataFrame:
     """
-    Read from Supabase REST (PostgREST).
-    filters: dict like {"year": 2016, "state_code": "CA"} -> eq.<val>
+    Singola richiesta (max ~1000 righe). Utile per lookup piccoli.
     """
     base = st.secrets["supabase"]["url"].rstrip("/")
     url = f"{base}/rest/v1/{table}"
@@ -42,29 +41,68 @@ def sb_select(table: str, select: str = "*", filters: dict | None = None, limit:
     if limit:
         params["limit"] = limit
 
+    # Anche se metti 'limit', Supabase spesso cappetta a 1000 senza Range.
     r = requests.get(url, headers=_sb_headers(), params=params, timeout=60)
     if r.status_code != 200:
         st.error(f"❌ Supabase API error [{r.status_code}]: {r.text}")
         return pd.DataFrame()
     try:
-        data = r.json()
-        return pd.DataFrame(data)
+        return pd.DataFrame(r.json())
     except Exception:
         return pd.DataFrame()
+
+@st.cache_data(show_spinner=False, ttl=600)
+def sb_select_all(table: str, select: str = "*", filters: dict | None = None, page_size: int = 1000, max_pages: int = 1000) -> pd.DataFrame:
+    """
+    Scarica TUTTE le righe tramite paginazione usando l'header Range.
+    Loop finché la pagina non è piena.
+    """
+    base = st.secrets["supabase"]["url"].rstrip("/")
+    url = f"{base}/rest/v1/{table}"
+    params = {"select": select}
+    if filters:
+        for col, val in filters.items():
+            params[col] = f"eq.{val}"
+
+    frames = []
+    start = 0
+    for _ in range(max_pages):
+        end = start + page_size - 1
+        headers = _sb_headers() | {
+            "Prefer": "count=exact",
+            "Range": f"{start}-{end}",
+            # "Range-Unit": "items",  # opzionale; PostgREST di solito non lo richiede
+        }
+        r = requests.get(url, headers=headers, params=params, timeout=60)
+        if r.status_code not in (200, 206):  # 206 = Partial Content
+            st.error(f"❌ Supabase API error [{r.status_code}]: {r.text}")
+            break
+
+        chunk = pd.DataFrame(r.json())
+        if chunk.empty:
+            break
+
+        frames.append(chunk)
+        # se abbiamo preso meno del page_size, fine
+        if len(chunk) < page_size:
+            break
+
+        start += page_size
+
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, ignore_index=True)
 
 # ==============================
 # Data access layer
 # ==============================
 @st.cache_data(show_spinner=False, ttl=600)
 def load_regions() -> pd.DataFrame:
-    # state_code, state_name
-    return sb_select("regions", select="state_code,state_name").drop_duplicates()
+    return sb_select_all("regions", select="state_code,state_name").drop_duplicates()
 
 @st.cache_data(show_spinner=False, ttl=600)
 def load_sectors() -> pd.DataFrame:
-    # naics_code, sector_macro
-    df = sb_select("sectors", select="naics_code,sector_macro").drop_duplicates()
-    # Normalize sector_macro
+    df = sb_select_all("sectors", select="naics_code,sector_macro").drop_duplicates()
     if "sector_macro" in df.columns:
         df["sector_macro"] = df["sector_macro"].fillna("").str.strip()
         df = df[df["sector_macro"] != ""]
@@ -73,8 +111,8 @@ def load_sectors() -> pd.DataFrame:
 @st.cache_data(show_spinner=False, ttl=600)
 def load_incidents() -> pd.DataFrame:
     cols = "year,state_code,naics_code,injuries,fatalities,hoursworked,employees,daysawayfromwork,jobtransferrestriction"
-    df = sb_select("incidents", select=cols, limit=100000)
-    # Ensure numeric types
+    df = sb_select_all("incidents", select=cols, page_size=2000)  # pagina con batch da 2000
+    # tipizzazione sicura
     for c in ["year", "injuries", "fatalities", "hoursworked", "employees", "daysawayfromwork", "jobtransferrestriction"]:
         if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce")
@@ -84,8 +122,6 @@ def load_incidents() -> pd.DataFrame:
 df_regions = load_regions()
 df_sectors = load_sectors()
 df_inc = load_incidents()
-st.write("Unique years in incidents:", sorted(df_inc["year"].dropna().unique().tolist()))
-st.write("Rows loaded:", len(df_inc))
 
 # Derived safeframes
 def incidents_with_state() -> pd.DataFrame:
