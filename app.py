@@ -73,7 +73,7 @@ def load_sectors() -> pd.DataFrame:
 @st.cache_data(show_spinner=False, ttl=600)
 def load_incidents() -> pd.DataFrame:
     cols = "year,state_code,naics_code,injuries,fatalities,hoursworked,employees,daysawayfromwork,jobtransferrestriction"
-    df = sb_select("incidents", select=cols)
+    df = sb_select("incidents", select=cols, limit=100000)
     # Ensure numeric types
     for c in ["year", "injuries", "fatalities", "hoursworked", "employees", "daysawayfromwork", "jobtransferrestriction"]:
         if c in df.columns:
