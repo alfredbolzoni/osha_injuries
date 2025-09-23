@@ -55,17 +55,27 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 with tab1:
     st.header("National Overview")
 
-    # Yearly KPIs (nationwide)
-    df_kpi_years = run_query("""
-        SELECT 
-            CAST(year AS INT) AS year,
-            ROUND(SUM(injuries)::decimal / NULLIF(SUM(hoursworked),0) * 200000, 2) AS trir,
-            ROUND(SUM(daysawayfromwork)::decimal / NULLIF(SUM(hoursworked),0) * 200000, 2) AS severity_rate,
-            ROUND(SUM(fatalities)::decimal / NULLIF(SUM(employees),0) * 100000, 2) AS fatality_rate
-        FROM incidents
-        GROUP BY year
-        ORDER BY year;
-    """)
+    # Pull all relevant fields via REST
+    df_incidents = run_query(
+        "incidents",
+        select="year,injuries,fatalities,hoursworked,employees,daysawayfromwork"
+    )
+
+    if df_incidents.empty:
+        st.error("⚠️ No data available in incidents table.")
+    else:
+        # Aggregate by year in pandas
+        df_kpi_years = df_incidents.groupby("year").agg({
+            "injuries": "sum",
+            "fatalities": "sum",
+            "hoursworked": "sum",
+            "employees": "sum",
+            "daysawayfromwork": "sum"
+        }).reset_index()
+
+        df_kpi_years["TRIR"] = (df_kpi_years["injuries"] / df_kpi_years["hoursworked"]) * 200000
+        df_kpi_years["SeverityRate"] = (df_kpi_years["daysawayfromwork"] / df_kpi_years["hoursworked"]) * 200000
+        df_kpi_years["FatalityRate"] = (df_kpi_years["fatalities"] / df_kpi_years["employees"]) * 100000
 
     if not df_kpi_years.empty:
         latest = df_kpi_years.iloc[-1]
@@ -88,12 +98,8 @@ with tab1:
         """)
 
     # National trend (all years)
-    df_trend = run_query("""
-        SELECT CAST(year AS INT) AS year, SUM(injuries) AS injuries
-        FROM incidents
-        GROUP BY year
-        ORDER BY year;
-    """)
+    df_trend = df_incidents.groupby("year")["injuries"].sum().reset_index()
+    
     if not df_trend.empty:
         st.subheader("📈 National Injury Trend")
         fig_trend = px.line(df_trend, x="year", y="injuries", markers=True,
@@ -131,12 +137,14 @@ with tab1:
 with tab2:
     st.header("State Analysis")
 
-    states = run_query("""
-        SELECT DISTINCT state_name 
-        FROM regions 
-        WHERE state_name IS NOT NULL 
-        ORDER BY state_name;
-    """)["state_name"].tolist()
+    df_states = run_query("regions", select="state_name")
+
+    if df_states.empty:
+        st.error("⚠️ No states found in 'regions' table.")
+        states = []
+    else:
+        states = sorted(df_states["state_name"].dropna().unique().tolist())
+
     state_choice = st.selectbox("🗺️ Select a State:", states)
 
     # KPIs State vs National
