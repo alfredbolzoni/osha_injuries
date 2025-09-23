@@ -111,11 +111,23 @@ def load_sectors() -> pd.DataFrame:
 @st.cache_data(show_spinner=False, ttl=600)
 def load_incidents() -> pd.DataFrame:
     cols = "year,state_code,naics_code,injuries,fatalities,hoursworked,employees,daysawayfromwork,jobtransferrestriction"
-    df = sb_select_all("incidents", select=cols, page_size=2000)  # pagina con batch da 2000
-    # tipizzazione sicura
-    for c in ["year", "injuries", "fatalities", "hoursworked", "employees", "daysawayfromwork", "jobtransferrestriction"]:
+    df = sb_select_all("incidents", select=cols, page_size=2000)
+
+    # Normalizza year: stringa -> int
+    if "year" in df.columns:
+        df["year"] = (
+            df["year"]
+            .astype(str)          # tutto stringa
+            .str.strip()          # togli spazi
+            .str.extract(r"(\d{4})")[0]   # prendi solo 4 cifre
+            .astype("Int64")      # tipo intero con NA supportato
+        )
+
+    # Cast numerico per gli altri
+    for c in ["injuries", "fatalities", "hoursworked", "employees", "daysawayfromwork", "jobtransferrestriction"]:
         if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce")
+
     return df
 
 # Preload all base tables
