@@ -127,6 +127,7 @@ def load_incidents() -> pd.DataFrame:
             df[c] = pd.to_numeric(df[c], errors="coerce")
 
     return df
+st.write("Sample raw years from DB:", df_inc["year"].dropna().unique()[:20])
 
 # Preload all base tables
 df_regions = load_regions()
