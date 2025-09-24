@@ -405,7 +405,7 @@ with tab4:
                 "employees": "sum"
             }).to_frame().T
 
-            # Rinomina le colonne per leggibilità
+            # Rinomina colonne
             tbl = tbl.rename(columns={
                 "injuries": "Injuries",
                 "fatalities": "Fatalities",
@@ -413,10 +413,15 @@ with tab4:
                 "employees": "Employees"
             })
 
-            # Usa i nuovi nomi nelle formule
+            # Aggiungi KPI
             tbl["TRIR (/200k hrs)"] = calc_trir(
                 tbl["Injuries"].iloc[0],
                 tbl["Hours Worked"].iloc[0]
+            )
+
+            tbl["Fatality Rate (/100k emp)"] = calc_fatality(
+                tbl["Fatalities"].iloc[0],
+                tbl["Employees"].iloc[0]
             )
 
             st.subheader(f"📊 {state_sel} – {sector_sel} ({year_sel})")
@@ -435,12 +440,12 @@ with tab4:
             nat = df_all[df_all["year"] == year_sel]
 
             # Valori TRIR
-            val_trir = safe_div(tbl["injuries"].get(0, 0), tbl["hoursworked"].get(0, 0), 200000)
-            ref_trir = safe_div(nat["injuries"].sum(), nat["hoursworked"].sum(), 200000)
+            val_trir = calc_trir(tbl["Injuries"].iloc[0], tbl["Hours Worked"].iloc[0])
+            ref_trir = calc_trir(nat["injuries"].sum(), nat["hoursworked"].sum())
 
             # Valori Fatality Rate
-            val_fat = safe_div(tbl["fatalities"].get(0, 0), tbl["employees"].get(0, 0), 100000)
-            ref_fat = safe_div(nat["fatalities"].sum(), nat["employees"].sum(), 100000)
+            val_fat = calc_fatality(tbl["Fatalities"].iloc[0], tbl["Employees"].iloc[0])
+            ref_fat = calc_fatality(nat["fatalities"].sum(), nat["employees"].sum())
 
             c1, c2 = st.columns(2)
 
