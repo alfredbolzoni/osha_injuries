@@ -137,10 +137,11 @@ st.write(df_inc[["year"]].dropna().head(50))
 st.write("Unique values:", df_inc["year"].dropna().unique().tolist())
 
 # Derived safeframes
-def incidents_with_state() -> pd.DataFrame:
-    if df_inc.empty or df_regions.empty:
+def incidents_with_state_sector() -> pd.DataFrame:
+    df1 = incidents_with_state()
+    if df1.empty or df_sectors.empty:
         return pd.DataFrame()
-    return df_inc.merge(df_regions, on="state_code", how="left")
+    return df1.merge(df_sectors, on="naics_code", how="left")
 
 def incidents_with_state_sector() -> pd.DataFrame:
     df1 = incidents_with_state()
@@ -396,16 +397,29 @@ with tab4:
     st.header("Combined Analysis: State + Sector + Year")
 
     df_all = incidents_with_state_sector()
-    if df_all.empty:
-        st.error("⚠️ Missing data to combine.")
-    else:
-        years = sorted(df_all["year"].dropna().astype(int).unique().tolist())
-        states = sorted(df_all["state_name"].dropna().unique().tolist())
-        macros = sorted(df_all["sector_macro"].dropna().unique().tolist())
 
-        year_sel = st.selectbox("📅 Select Year:", years, index=len(years)-1 if years else 0)
-        state_sel = st.selectbox("🗺️ Select State:", states, index=0 if states else None)
-        sector_sel = st.selectbox("🏭 Select Macro Sector:", macros, index=0 if macros else None)
+    if df_all.empty:
+        st.error("⚠️ Missing data to combine (df_all is empty).")
+    else:
+        # Normalizza i nomi delle colonne (tutto minuscolo)
+        df_all.columns = df_all.columns.str.lower()
+
+        # Debug: mostra colonne e qualche riga
+        st.write("✅ Columns in df_all:", df_all.columns.tolist())
+        st.write("Sample rows:", df_all.head())
+
+        required_cols = {"year", "state_name", "sector_macro"}
+        missing = required_cols - set(df_all.columns)
+        if missing:
+            st.error(f"⚠️ Missing required columns in df_all: {missing}")
+        else:
+            years = sorted(df_all["year"].dropna().astype(int).unique().tolist())
+            states = sorted(df_all["state_name"].dropna().unique().tolist())
+            macros = sorted(df_all["sector_macro"].dropna().unique().tolist())
+
+            year_sel = st.selectbox("📅 Select Year:", years, index=len(years)-1 if years else 0)
+            state_sel = st.selectbox("🗺️ Select State:", states, index=0 if states else None)
+            sector_sel = st.selectbox("🏭 Select Macro Sector:", macros, index=0 if macros else None)
 
         df_f = df_all[
             (df_all["year"] == year_sel) &
@@ -523,12 +537,10 @@ with tab5:
 
     df_all = incidents_with_state_sector()
     if df_all.empty:
-        st.error("⚠️ Missing data.")
+        st.error("⚠️ df_all is empty after merge.")
     else:
-        # Latest year
-        years = sorted(df_all["year"].dropna().astype(int).unique().tolist())
-        latest_year = years[-1] if years else None
-        st.caption(f"Latest year in dataset: **{latest_year}**" if latest_year else "No year information available.")
+        st.write("Columns in df_all:", df_all.columns.tolist())
+        st.write("Sample:", df_all.head())
 
         # Top states by TRIR in latest year
         if latest_year:
