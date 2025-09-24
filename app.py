@@ -411,8 +411,6 @@ with tab4:
                 "employees": "Employees"
             })
 
-            tbl["TRIR (/200k hrs)"] = calc_trir(tbl["Injuries"].get(0, 0), tbl["Hours Worked"].get(0, 0))
-
             tbl["TRIR (/200k hrs)"] = safe_div(
                 tbl["injuries"].get(0, 0),
                 tbl["hoursworked"].get(0, 0),
