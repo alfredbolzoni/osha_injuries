@@ -404,6 +404,14 @@ with tab4:
                 "hoursworked": "sum",
                 "employees": "sum"
             }).to_frame().T
+            tbl = tbl.rename(columns={
+                "injuries": "Injuries",
+                "fatalities": "Fatalities",
+                "hoursworked": "Hours Worked",
+                "employees": "Employees"
+            })
+
+            tbl["TRIR (/200k hrs)"] = calc_trir(tbl["Injuries"].get(0, 0), tbl["Hours Worked"].get(0, 0))
 
             tbl["TRIR (/200k hrs)"] = safe_div(
                 tbl["injuries"].get(0, 0),
