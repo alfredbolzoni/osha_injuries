@@ -358,27 +358,17 @@ with tab3:
 # TAB 4 - COMBINED ANALYSIS
 # -------------------------------------------------------------------
 with tab4:
-    st.markdown(
-        "<h2 style='margin-bottom:0'>Combined Analysis: State × Sector × Year</h2>",
-        unsafe_allow_html=True
-    )
+    st.header("Combined Analysis: State + Sector + Year")
 
     df_all = incidents_with_state_sector()
-    if not df_all.empty:
-        # Selettori
+    if not df_all.empty:   # primo if
         years = sorted(df_all["year"].dropna().unique().astype(int).tolist())
         states = sorted(df_all["state_name"].dropna().unique().tolist())
         sectors = sorted(df_all["sector_macro"].dropna().unique().tolist())
 
-        with st.form("filters_combined"):
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                year_sel = st.selectbox("📅 Year", years, index=len(years)-1)
-            with c2:
-                state_sel = st.selectbox("🗺️ State", states)
-            with c3:
-                sector_sel = st.selectbox("🏭 Macro Sector", sectors)
-            submitted = st.form_submit_button("Apply Filters")
+        year_sel = st.selectbox("📅 Select Year:", years, index=len(years)-1)
+        state_sel = st.selectbox("🗺️ Select State:", states)
+        sector_sel = st.selectbox("🏭 Select Macro Sector:", sectors)
 
         df_f = df_all[
             (df_all["year"] == year_sel) &
@@ -386,102 +376,146 @@ with tab4:
             (df_all["sector_macro"] == sector_sel)
         ]
 
-        if not df_f.empty:
-            # Tabella KPI base
+        if not df_f.empty:   # secondo if
             tbl = df_f.agg({
                 "injuries": "sum",
                 "fatalities": "sum",
                 "hoursworked": "sum",
                 "employees": "sum"
             }).to_frame().T
+
             tbl["TRIR (/200k hrs)"] = safe_div(
-                tbl["injuries"].get(0, 0), tbl["hoursworked"].get(0, 0), 200000
+                tbl["injuries"].get(0, 0),
+                tbl["hoursworked"].get(0, 0),
+                200000
             )
 
             st.subheader(f"📊 {state_sel} – {sector_sel} ({year_sel})")
-            st.dataframe(tbl, use_container_width=True)
+            st.dataframe(tbl)
 
             # Multi-year trend
             df_tr = (
-                df_all[(df_all["state_name"] == state_sel) &
-                       (df_all["sector_macro"] == sector_sel)]
+                df_all[(df_all["state_name"] == state_sel) & (df_all["sector_macro"] == sector_sel)]
                 .groupby("year")["injuries"].sum().reset_index()
             )
-            if not df_tr.empty:
-                st.subheader(f"📈 Injury Trend – {state_sel} ({sector_sel})")
-                fig_tr = px.line(
-                    df_tr, x="year", y="injuries", markers=True,
-                    labels={"year": "Year", "injuries": "Injuries"}
-                )
-                fig_tr.update_traces(hovertemplate="Year %{x}<br>Injuries: %{y:,}")
-                st.plotly_chart(fig_tr, use_container_width=True)
+            st.subheader(f"📈 Injury Trend – {state_sel} ({sector_sel})")
+            fig_tr = px.line(df_tr, x="year", y="injuries", markers=True)
+            st.plotly_chart(fig_tr, use_container_width=True)
 
-            # Gauges TRIR + Fatality Rate
+            # KPI Gauges
             nat = df_all[df_all["year"] == year_sel]
+
+            # Valori TRIR
             val_trir = safe_div(tbl["injuries"].get(0, 0), tbl["hoursworked"].get(0, 0), 200000)
             ref_trir = safe_div(nat["injuries"].sum(), nat["hoursworked"].sum(), 200000)
 
+            # Valori Fatality Rate
             val_fat = safe_div(tbl["fatalities"].get(0, 0), tbl["employees"].get(0, 0), 100000)
             ref_fat = safe_div(nat["fatalities"].sum(), nat["employees"].sum(), 100000)
 
             c1, c2 = st.columns(2)
+
             with c1:
                 st.subheader("📌 TRIR vs National Average")
-                rng = max(val_trir, ref_trir) * 1.5 if max(val_trir, ref_trir) > 0 else 1
+                try:
+                    rng_base = float(max(val_trir, ref_trir))
+                except Exception:
+                    rng_base = 1.0
+                rng = rng_base * 1.5 if rng_base > 0 else 1
+
                 fig_trir = go.Figure(go.Indicator(
                     mode="gauge+number+delta",
                     value=val_trir,
-                    delta={"reference": ref_trir,
-                           "increasing": {"color": "red"},
-                           "decreasing": {"color": "green"}},
-                    gauge={"axis": {"range": [0, rng]}, "bar": {"color": "blue"}},
+                    delta={
+                        "reference": ref_trir,
+                        "increasing": {"color": "red"},
+                        "decreasing": {"color": "green"}
+                    },
+                    gauge={
+                        "axis": {"range": [0, rng]},
+                        "bar": {"color": "blue"},
+                        "steps": [
+                            {"range": [0, ref_trir], "color": "lightgreen"},
+                            {"range": [ref_trir, rng], "color": "pink"}
+                        ],
+                        "threshold": {
+                            "line": {"color": "black", "width": 3},
+                            "thickness": 0.75,
+                            "value": ref_trir
+                        }
+                    },
                     number={"font": {"size": 36, "color": "black"}},
-                    title={"text": f"TRIR {state_sel} – {sector_sel} ({year_sel})",
-                           "font": {"size": 14}}
+                    title={"text": f"TRIR {state_sel} – {sector_sel} ({year_sel})", "font": {"size": 14}}
                 ))
                 st.plotly_chart(fig_trir, use_container_width=True)
 
             with c2:
                 st.subheader("📌 Fatality Rate vs National Average")
-                rng = max(val_fat, ref_fat) * 1.5 if max(val_fat, ref_fat) > 0 else 1
+                try:
+                    rng_base = float(max(val_fat, ref_fat))
+                except Exception:
+                    rng_base = 1.0
+                rng = rng_base * 1.5 if rng_base > 0 else 1
+
                 fig_fat = go.Figure(go.Indicator(
                     mode="gauge+number+delta",
                     value=val_fat,
-                    delta={"reference": ref_fat,
-                           "increasing": {"color": "red"},
-                           "decreasing": {"color": "green"}},
-                    gauge={"axis": {"range": [0, rng]}, "bar": {"color": "blue"}},
-                    number={"font": {"size": 36, "color": "black"}},
-                    title={"text": f"Fatality Rate {state_sel} – {sector_sel} ({year_sel})",
-                           "font": {"size": 14}}
+                    delta={"reference": ref_fat, "increasing": {"color": "red"}, "decreasing": {"color": "green"}},
+                    gauge={
+                        "axis": {"range": [0, rng]},
+                        "bar": {"color": "blue"},
+                        "steps": [
+                            {"range": [0, ref_fat], "color": "lightgreen"},
+                            {"range": [ref_fat, rng], "color": "pink"}
+                        ],
+                        "threshold": {
+                            "line": {"color": "black", "width": 3},
+                            "thickness": 0.75,
+                            "value": ref_fat
+                        }
+                    },
+                    title={"text": f"Fatality Rate {state_sel} – {sector_sel} ({year_sel})"}
                 ))
                 st.plotly_chart(fig_fat, use_container_width=True)
 
-            # Scenario Simulator
+            # ==========================
+            # 3) Scenario Simulator
+            # ==========================
             st.subheader("🧪 Scenario Simulator")
+
             cA, cB, cC = st.columns(3)
             with cA:
-                delta_emp = st.slider("Employees %", -30, 30, 0, step=5)
+                delta_emp = st.slider("Change in Employees (%)", -30, 30, 0, step=5)
             with cB:
-                delta_hours = st.slider("Hours Worked %", -30, 30, 0, step=5)
+                delta_hours = st.slider("Change in Hours Worked (%)", -30, 30, 0, step=5)
             with cC:
-                delta_inj = st.slider("Injuries %", -50, 50, 0, step=5)
+                delta_inj = st.slider("Change in Injuries (%)", -50, 50, 0, step=5)
 
+            st.caption("👷 Employees and ⏱️ Hours affect the **denominator** of Fatality Rate and TRIR respectively. Injuries % adjusts the **numerator** for TRIR.")
+
+            # Dataset base per i calcoli
             base = df_f.agg({
-                "injuries": "sum", "fatalities": "sum",
-                "employees": "sum", "hoursworked": "sum"
+                "injuries": "sum",
+                "fatalities": "sum",
+                "employees": "sum",
+                "hoursworked": "sum"
             })
+
             injuries = float(base.get("injuries", 0) or 0)
             fatalities = float(base.get("fatalities", 0) or 0)
             employees = float(base.get("employees", 0) or 0)
             hours = float(base.get("hoursworked", 0) or 0)
 
+            # Applica variazioni
             employees_adj = max(employees * (1 + delta_emp/100), 1.0) if employees else 0.0
             hours_adj     = max(hours * (1 + delta_hours/100), 1.0) if hours else 0.0
             injuries_adj  = max(injuries * (1 + delta_inj/100), 0.0)
 
+            # KPI originali
             trir_orig = safe_div(injuries, hours, 200000)
             fatality_orig = safe_div(fatalities, employees, 100000)
+
+            # KPI simulati
             trir_new = safe_div(injuries_adj, hours_adj, 200000)
             fatality_new = safe_div(fatalities, employees_adj, 100000)
 
@@ -493,20 +527,22 @@ with tab4:
                 st.metric("💥 TRIR (simulated)", f"{trir_new:.2f}", f"{trir_new - trir_orig:+.2f}")
                 st.metric("☠️ Fatality Rate (simulated)", f"{fatality_new:.2f}", f"{fatality_new - fatality_orig:+.2f}")
 
-            # Compact info box
-            st.markdown("""
-            <div style='background:#f0f2f6;padding:12px;border-radius:8px;margin-top:10px'>
-            <b>📌 How to interpret the simulator</b><br>
-            • Employees (👷) → denominator of Fatality Rate<br>
-            • Hours worked (⏱️) → denominator of TRIR<br>
-            • Injuries (%) → numerator of TRIR<br>
-            • Fatalities are kept historical (no forecasting)<br>
-            </div>
-            """, unsafe_allow_html=True)
+            st.info(f"""
+            **How to interpret the simulator**
 
-        else:
+            - Sliders adjust **percent changes** to denominators and numerators:  
+              • Employees (👷) → denominator of Fatality Rate  
+              • Hours worked (⏱️) → denominator of TRIR  
+              • Injuries (%) → numerator of TRIR
+            - Recorded events (fatalities) remain historical; we do not forecast events.
+            - Formulas: TRIR = (Injuries ÷ Hours) × 200,000; Fatality Rate = (Fatalities ÷ Employees) × 100,000.
+            - Purpose: quick **what-if analysis** to assess risk metrics under alternative operating conditions.
+            """)
+
+        else:   # chiude il secondo if (df_f vuoto)
             st.warning("⚠️ No data for the selected filters.")
-    else:
+
+    else:   # chiude il primo if (df_all vuoto)
         st.error("⚠️ Combined dataset is empty.")
 
 # -------------------------------------------------------------------
