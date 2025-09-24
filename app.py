@@ -390,12 +390,7 @@ with tab4:
                 gauge={"axis": {"range": [0, rng]}}
             ))
             st.plotly_chart(fig_kpi, use_container_width=True)
-        else:
-            st.warning("⚠️ No data for the selected filters.")
-    else:
-        st.error("⚠️ Combined dataset is empty.")
-
-        # ==========================
+                    # ==========================
         # 3) Scenario Simulator
         # ==========================
         st.subheader("🧪 Scenario Simulator")
@@ -455,6 +450,13 @@ with tab4:
         - Formulas: TRIR = (Injuries ÷ Hours) × 200,000; Fatality Rate = (Fatalities ÷ Employees) × 100,000.
         - Purpose: quick **what-if analysis** to assess risk metrics under alternative operating conditions.
         """)
+    else:
+            st.warning("⚠️ No data for the selected filters.")
+else:
+    st.error("⚠️ Combined dataset is empty.")
+
+
+
 
 # -------------------------------------------------------------------
 # TAB 5 - INSIGHTS & EXPORT
