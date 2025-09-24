@@ -242,44 +242,59 @@ with tab5:
     st.header("Insights & Export")
 
     df_all = incidents_with_state_sector()
-    latest_year = df_all["year"].max()
+    if df_all.empty:
+        st.error("⚠️ df_all is empty after merge.")
+    else:
+        latest_year = df_all["year"].max()
 
-    # Top states
-    df_states = df_all[df_all["year"] == latest_year].groupby("state_name").agg(
-        injuries=("injuries", "sum"), hours=("hoursworked", "sum")
-    ).reset_index()
-    df_states["TRIR"] = safe_div(df_states["injuries"], df_states["hours"], 200000)
-    df_states = df_states.sort_values("TRIR", ascending=False).head(10)
-    st.subheader(f"🔥 Top 10 States by TRIR ({latest_year})")
-    fig_s = px.bar(df_states, x="TRIR", y="state_name", orientation="h")
-    st.plotly_chart(fig_s, use_container_width=True)
+        # Top states
+        df_states = (
+            df_all[df_all["year"] == latest_year]
+            .groupby("state_name")
+            .agg(injuries=("injuries", "sum"), hours=("hoursworked", "sum"))
+            .reset_index()
+        )
+        df_states["TRIR"] = df_states.apply(
+            lambda r: safe_div(r["injuries"], r["hours"], 200000), axis=1
+        )
+        df_states = df_states.sort_values("TRIR", ascending=False).head(10)
 
-    # Top sectors
-    df_secs = df_all[df_all["year"] == latest_year].groupby("sector_macro").agg(
-        injuries=("injuries", "sum"), hours=("hoursworked", "sum")
-    ).reset_index()
-    df_secs["TRIR"] = safe_div(df_secs["injuries"], df_secs["hours"], 200000)
-    df_secs = df_secs.sort_values("TRIR", ascending=False).head(10)
-    st.subheader(f"🏭 Top 10 Sectors by TRIR ({latest_year})")
-    fig_m = px.bar(df_secs, x="TRIR", y="sector_macro", orientation="h")
-    st.plotly_chart(fig_m, use_container_width=True)
+        st.subheader(f"🔥 Top 10 States by TRIR ({latest_year})")
+        fig_s = px.bar(df_states, x="TRIR", y="state_name", orientation="h")
+        st.plotly_chart(fig_s, use_container_width=True)
 
-    # Export
-    buffer_xlsx = io.BytesIO()
-    with pd.ExcelWriter(buffer_xlsx, engine="xlsxwriter") as writer:
-        df_all.to_excel(writer, index=False, sheet_name="Incidents")
-    st.download_button("⬇️ Download Excel", buffer_xlsx.getvalue(), "hse_report.xlsx")
+        # Top sectors
+        df_secs = (
+            df_all[df_all["year"] == latest_year]
+            .groupby("sector_macro")
+            .agg(injuries=("injuries", "sum"), hours=("hoursworked", "sum"))
+            .reset_index()
+        )
+        df_secs["TRIR"] = df_secs.apply(
+            lambda r: safe_div(r["injuries"], r["hours"], 200000), axis=1
+        )
+        df_secs = df_secs.sort_values("TRIR", ascending=False).head(10)
 
-    buffer_pdf = io.BytesIO()
-    doc = SimpleDocTemplate(buffer_pdf, pagesize=A4)
-    styles = getSampleStyleSheet()
-    elements = [Paragraph("📊 HSE Report", styles["Title"]), Spacer(1, 8)]
-    data = [df_states.columns.tolist()] + df_states.astype(str).values.tolist()
-    table = Table(data, repeatRows=1)
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0,0), (-1,0), colors.lightblue),
-        ("GRID", (0,0), (-1,-1), 0.25, colors.grey),
-    ]))
-    elements.append(table)
-    doc.build(elements)
-    st.download_button("⬇️ Download PDF", buffer_pdf.getvalue(), "hse_report.pdf")
+        st.subheader(f"🏭 Top 10 Sectors by TRIR ({latest_year})")
+        fig_m = px.bar(df_secs, x="TRIR", y="sector_macro", orientation="h")
+        st.plotly_chart(fig_m, use_container_width=True)
+
+        # Export
+        buffer_xlsx = io.BytesIO()
+        with pd.ExcelWriter(buffer_xlsx, engine="xlsxwriter") as writer:
+            df_all.to_excel(writer, index=False, sheet_name="Incidents")
+        st.download_button("⬇️ Download Excel", buffer_xlsx.getvalue(), "hse_report.xlsx")
+
+        buffer_pdf = io.BytesIO()
+        doc = SimpleDocTemplate(buffer_pdf, pagesize=A4)
+        styles = getSampleStyleSheet()
+        elements = [Paragraph("📊 HSE Report", styles["Title"]), Spacer(1, 8)]
+        data = [df_states.columns.tolist()] + df_states.astype(str).values.tolist()
+        table = Table(data, repeatRows=1)
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (-1,0), colors.lightblue),
+            ("GRID", (0,0), (-1,-1), 0.25, colors.grey),
+        ]))
+        elements.append(table)
+        doc.build(elements)
+        st.download_button("⬇️ Download PDF", buffer_pdf.getvalue(), "hse_report.pdf")
