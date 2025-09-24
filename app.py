@@ -427,8 +427,7 @@ with tab4:
             c1, c2 = st.columns(2)
             with c1:
                 st.subheader("📌 TRIR vs National Average")
-                rng_base = max(val_trir, ref_trir)
-                rng = rng_base * 1.5 if rng_base > 0 else 1
+                rng = max(val_trir, ref_trir) * 1.5 if max(val_trir, ref_trir) > 0 else 1
                 fig_trir = go.Figure(go.Indicator(
                     mode="gauge+number+delta",
                     value=val_trir,
@@ -530,22 +529,15 @@ with tab5:
             .agg(injuries=("injuries", "sum"), hours=("hoursworked", "sum"))
             .reset_index()
         )
-        df_states["TRIR (/200k hrs)"] = df_states.apply(
+        df_states["TRIR"] = df_states.apply(
             lambda r: safe_div(r.get("injuries", 0), r.get("hours", 0), 200000), axis=1
         )
-        df_states = df_states.sort_values("TRIR (/200k hrs)", ascending=False).head(10)
-
-        # 🔧 Rename for readability
-        df_states = df_states.rename(columns={
-            "state_name": "State",
-            "injuries": "Injuries",
-            "hours": "Hours Worked"
-        })
+        df_states = df_states.sort_values("TRIR", ascending=False).head(10)
 
         st.subheader(f"🔥 Top 10 States by TRIR ({latest_year})")
         fig_s = px.bar(
-            df_states, x="TRIR (/200k hrs)", y="State", orientation="h",
-            labels={"State": "State", "TRIR (/200k hrs)": "TRIR (/200k hrs)"}
+            df_states, x="TRIR", y="state_name", orientation="h",
+            labels={"state_name": "State", "TRIR": "TRIR (/200k hrs)"}
         )
         fig_s.update_traces(hovertemplate="<b>%{y}</b><br>TRIR: %{x:.2f}")
         st.plotly_chart(fig_s, use_container_width=True)
@@ -557,22 +549,15 @@ with tab5:
             .agg(injuries=("injuries", "sum"), hours=("hoursworked", "sum"))
             .reset_index()
         )
-        df_secs["TRIR (/200k hrs)"] = df_secs.apply(
+        df_secs["TRIR"] = df_secs.apply(
             lambda r: safe_div(r.get("injuries", 0), r.get("hours", 0), 200000), axis=1
         )
-        df_secs = df_secs.sort_values("TRIR (/200k hrs)", ascending=False).head(10)
-
-        # 🔧 Rename for readability
-        df_secs = df_secs.rename(columns={
-            "sector_macro": "Sector Macro",
-            "injuries": "Injuries",
-            "hours": "Hours Worked"
-        })
+        df_secs = df_secs.sort_values("TRIR", ascending=False).head(10)
 
         st.subheader(f"🏭 Top 10 Sectors by TRIR ({latest_year})")
         fig_m = px.bar(
-            df_secs, x="TRIR (/200k hrs)", y="Sector Macro", orientation="h",
-            labels={"Sector Macro": "Sector Macro", "TRIR (/200k hrs)": "TRIR (/200k hrs)"}
+            df_secs, x="TRIR", y="sector_macro", orientation="h",
+            labels={"sector_macro": "Macro Sector", "TRIR": "TRIR (/200k hrs)"}
         )
         fig_m.update_traces(hovertemplate="<b>%{y}</b><br>TRIR: %{x:.2f}")
         st.plotly_chart(fig_m, use_container_width=True)
