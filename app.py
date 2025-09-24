@@ -120,6 +120,18 @@ df_regions = load_regions()
 df_sectors = load_sectors()
 df_inc = load_incidents()
 
+st.subheader("🔎 Debug merge inputs")
+
+st.write("Incidents sample:", df_inc.head())
+st.write("Regions sample:", df_regions.head())
+st.write("Sectors sample:", df_sectors.head())
+
+st.write("Unique state_code in incidents:", df_inc["state_code"].dropna().unique()[:20])
+st.write("Unique state_code in regions:", df_regions["state_code"].dropna().unique()[:20])
+
+st.write("Unique naics_code in incidents:", df_inc["naics_code"].dropna().unique()[:20])
+st.write("Unique naics_code in sectors:", df_sectors["naics_code"].dropna().unique()[:20])
+
 # ==============================
 # Merge helpers
 # ==============================
