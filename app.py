@@ -384,129 +384,129 @@ with tab4:
 
             c1, c2, c3 = st.columns(3)
 
-            # -------------------------------
-            # TRIR Gauge
-            # -------------------------------
-            with c1:
-                st.subheader("📌 TRIR vs National Average")
-                try:
-                    rng_base = float(max(val_trir, ref_trir))
-                except Exception:
-                    rng_base = 1.0
-                rng = rng_base * 1.5 if rng_base > 0 else 1
+        # -------------------------------
+        # TRIR Gauge
+        # -------------------------------
+        with c1:
+            st.subheader("📌 TRIR vs National Average")
+            try:
+                rng_base = float(max(val_trir, ref_trir))
+            except Exception:
+                rng_base = 1.0
+            rng = rng_base * 1.5 if rng_base > 0 else 1
 
-                fig_trir = go.Figure(go.Indicator(
-                    mode="gauge+number+delta",
-                    value=val_trir,
-                    delta={
-                        "reference": ref_trir,
-                        "increasing": {"color": "red"},
-                        "decreasing": {"color": "green"}
-                    },
-                    gauge={
-                        "axis": {"range": [0, rng]},
-                        "bar": {"color": "blue"},
-                        "steps": [
-                            {"range": [0, ref_trir], "color": "lightgreen"},
-                            {"range": [ref_trir, rng], "color": "pink"}
-                        ],
-                        "threshold": {
-                            "line": {"color": "black", "width": 3},
-                            "thickness": 0.75,
-                            "value": ref_trir
-                        }
-                    },
-                    number={"font": {"size": 36, "color": "black"}},
-                    title={
-                        "text": f"TRIR {state_sel} – {sector_sel} ({year_sel})",
-                        "font": {"size": 14}
+            fig_trir = go.Figure(go.Indicator(
+                mode="gauge+number+delta",
+                value=val_trir,
+                delta={
+                    "reference": ref_trir,
+                    "increasing": {"color": "red"},
+                    "decreasing": {"color": "green"}
+                },
+                gauge={
+                    "axis": {"range": [0, rng]},
+                    "bar": {"color": "blue"},
+                    "steps": [
+                        {"range": [0, ref_trir], "color": "lightgreen"},
+                        {"range": [ref_trir, rng], "color": "pink"}
+                    ],
+                    "threshold": {
+                        "line": {"color": "black", "width": 3},
+                        "thickness": 0.75,
+                        "value": ref_trir
                     }
-                ))
-                st.plotly_chart(fig_trir, use_container_width=True)
+                },
+                number={"font": {"size": 36, "color": "black"}},
+                title={
+                    "text": f"TRIR {state_sel} – {sector_sel} ({year_sel})",
+                    "font": {"size": 14}
+                }
+            ))
+            st.plotly_chart(fig_trir, use_container_width=True)
 
-            # -------------------------------
-            # Fatality Rate Gauge
-            # -------------------------------
-            with c2:
-                st.subheader("📌 Fatality Rate vs National Average")
-                try:
-                    rng_base = float(max(val_fat, ref_fat))
-                except Exception:
-                    rng_base = 1.0
-                rng = rng_base * 1.5 if rng_base > 0 else 1
+        # -------------------------------
+        # Fatality Rate Gauge
+        # -------------------------------
+        with c2:
+            st.subheader("📌 Fatality Rate vs National Average")
+            try:
+                rng_base = float(max(val_fat, ref_fat))
+            except Exception:
+                rng_base = 1.0
+            rng = rng_base * 1.5 if rng_base > 0 else 1
 
-                fig_fat = go.Figure(go.Indicator(
-                    mode="gauge+number+delta",
-                    value=val_fat,
-                    delta={
-                        "reference": ref_fat,
-                        "increasing": {"color": "red"},
-                        "decreasing": {"color": "green"}
-                    },
-                    gauge={
-                        "axis": {"range": [0, rng]},
-                        "bar": {"color": "blue"},
-                        "steps": [
-                            {"range": [0, ref_fat], "color": "lightgreen"},
-                            {"range": [ref_fat, rng], "color": "pink"}
-                        ],
-                        "threshold": {
-                            "line": {"color": "black", "width": 3},
-                            "thickness": 0.75,
-                            "value": ref_fat
-                        }
-                    },
-                    number={"font": {"size": 36, "color": "black"}},
-                    title={
-                        "text": f"Fatality Rate {state_sel} – {sector_sel} ({year_sel})",
-                        "font": {"size": 14}
+            fig_fat = go.Figure(go.Indicator(
+                mode="gauge+number+delta",
+                value=val_fat,
+                delta={
+                    "reference": ref_fat,
+                    "increasing": {"color": "red"},
+                    "decreasing": {"color": "green"}
+                },
+                gauge={
+                    "axis": {"range": [0, rng]},
+                    "bar": {"color": "blue"},
+                    "steps": [
+                        {"range": [0, ref_fat], "color": "lightgreen"},
+                        {"range": [ref_fat, rng], "color": "pink"}
+                    ],
+                    "threshold": {
+                        "line": {"color": "black", "width": 3},
+                        "thickness": 0.75,
+                        "value": ref_fat
                     }
-                ))
-                st.plotly_chart(fig_fat, use_container_width=True)
+                },
+                number={"font": {"size": 36, "color": "black"}},
+                title={
+                    "text": f"Fatality Rate {state_sel} – {sector_sel} ({year_sel})",
+                    "font": {"size": 14}
+                }
+            ))
+            st.plotly_chart(fig_fat, use_container_width=True)
 
-            # -------------------------------
-            # Severity Rate Gauge
-            # -------------------------------
-            with c3:
-                st.subheader("📌 Severity Rate vs National Average")
-                # valori per Severity
-                val_sev = safe_div(tbl["daysawayfromwork"].get(0, 0), tbl["hoursworked"].get(0, 0), 200000)
-                ref_sev = safe_div(nat["daysawayfromwork"].sum(), nat["hoursworked"].sum(), 200000)
+        # -------------------------------
+        # Severity Rate Gauge
+        # -------------------------------
+        with c3:
+            st.subheader("📌 Severity Rate vs National Average")
+            # valori per Severity
+            val_sev = safe_div(tbl["daysawayfromwork"].get(0, 0), tbl["hoursworked"].get(0, 0), 200000)
+            ref_sev = safe_div(nat["daysawayfromwork"].sum(), nat["hoursworked"].sum(), 200000)
 
-                try:
-                    rng_base = float(max(val_sev, ref_sev))
-                except Exception:
-                    rng_base = 1.0
-                rng = rng_base * 1.5 if rng_base > 0 else 1
+            try:
+                rng_base = float(max(val_sev, ref_sev))
+            except Exception:
+                rng_base = 1.0
+            rng = rng_base * 1.5 if rng_base > 0 else 1
 
-                fig_sev = go.Figure(go.Indicator(
-                    mode="gauge+number+delta",
-                    value=val_sev,
-                    delta={
-                        "reference": ref_sev,
-                        "increasing": {"color": "red"},
-                        "decreasing": {"color": "green"}
-                    },
-                    gauge={
-                        "axis": {"range": [0, rng]},
-                        "bar": {"color": "blue"},
-                        "steps": [
-                            {"range": [0, ref_sev], "color": "lightgreen"},
-                            {"range": [ref_sev, rng], "color": "pink"}
-                        ],
-                        "threshold": {
-                            "line": {"color": "black", "width": 3},
-                            "thickness": 0.75,
-                            "value": ref_sev
-                        }
-                    },
-                    number={"font": {"size": 36, "color": "black"}},
-                    title={
-                        "text": f"Severity Rate {state_sel} – {sector_sel} ({year_sel})",
-                        "font": {"size": 14}
+            fig_sev = go.Figure(go.Indicator(
+                mode="gauge+number+delta",
+                value=val_sev,
+                delta={
+                    "reference": ref_sev,
+                    "increasing": {"color": "red"},
+                    "decreasing": {"color": "green"}
+                },
+                gauge={
+                    "axis": {"range": [0, rng]},
+                    "bar": {"color": "blue"},
+                    "steps": [
+                        {"range": [0, ref_sev], "color": "lightgreen"},
+                        {"range": [ref_sev, rng], "color": "pink"}
+                    ],
+                    "threshold": {
+                        "line": {"color": "black", "width": 3},
+                        "thickness": 0.75,
+                        "value": ref_sev
                     }
-                ))
-                st.plotly_chart(fig_sev, use_container_width=True)
+                },
+                number={"font": {"size": 36, "color": "black"}},
+                title={
+                    "text": f"Severity Rate {state_sel} – {sector_sel} ({year_sel})",
+                    "font": {"size": 14}
+                }
+            ))
+            st.plotly_chart(fig_sev, use_container_width=True)
 
             # ==========================
             # 3) Scenario Simulator
