@@ -166,71 +166,61 @@ with tab1:
 with tab2:
     st.header("State Analysis")
 
-    # Load all states
-    states = run_query("SELECT DISTINCT state_name FROM regions ORDER BY state_name;")["state_name"].tolist()
+    # elenco stati
+    states = sorted(df_regions["state_name"].dropna().unique().tolist())
     state_choice = st.selectbox("🗺️ Select a State:", states)
 
-    if state_choice:
-        # Aggregate only for the selected state
-        df_state = run_query("""
-            SELECT i.year::int AS year,
-                   SUM(i.injuries) AS injuries,
-                   SUM(i.fatalities) AS fatalities,
-                   SUM(i.hoursworked) AS hoursworked,
-                   SUM(i.employees) AS employees,
-                   SUM(i.daysawayfromwork) AS daysawayfromwork,
-                   SUM(i.jobtransferrestriction) AS jobtransferrestriction
-            FROM incidents i
-            JOIN regions r ON i.state_code = r.state_code
-            WHERE r.state_name = %s
-            GROUP BY i.year
-            ORDER BY i.year;
-        """, [state_choice])
+    # filtro dataset
+    df_state = incidents_with_state()
+    df_state = df_state[df_state["state_name"] == state_choice]
 
-        # National aggregates (for comparison)
-        df_nat = run_query("""
-            SELECT SUM(injuries) AS injuries,
-                   SUM(fatalities) AS fatalities,
-                   SUM(hoursworked) AS hoursworked,
-                   SUM(employees) AS employees,
-                   SUM(daysawayfromwork) AS daysawayfromwork
-            FROM incidents;
-        """)
+    if not df_state.empty:
+        # aggregati nazionale e stato
+        nat_sum = incidents_with_state().sum(numeric_only=True)
+        st_sum = df_state.sum(numeric_only=True)
 
-        if not df_state.empty and not df_nat.empty:
-            st.subheader(f"📊 KPIs – {state_choice} vs National")
+        # KPI con .get() per evitare KeyError
+        state_trir = safe_div(st_sum.get("injuries", 0), st_sum.get("hoursworked", 0), 200000)
+        nat_trir   = safe_div(nat_sum.get("injuries", 0), nat_sum.get("hoursworked", 0), 200000)
 
-            st_sum = df_state.sum(numeric_only=True)
-            nat_sum = df_nat.iloc[0]
+        state_sev  = safe_div(st_sum.get("daysawayfromwork", 0), st_sum.get("hoursworked", 0), 200000)
+        nat_sev    = safe_div(nat_sum.get("daysawayfromwork", 0), nat_sum.get("hoursworked", 0), 200000)
 
-            state_trir = safe_div(st_sum["injuries"], st_sum["hoursworked"], 200000)
-            nat_trir   = safe_div(nat_sum["injuries"], nat_sum["hoursworked"], 200000)
-            state_sev  = safe_div(st_sum["daysawayfromwork"], st_sum["hoursworked"], 200000)
-            nat_sev    = safe_div(nat_sum["daysawayfromwork"], nat_sum["hoursworked"], 200000)
-            state_fat  = safe_div(st_sum["fatalities"], st_sum["employees"], 100000)
-            nat_fat    = safe_div(nat_sum["fatalities"], nat_sum["employees"], 100000)
+        state_fat  = safe_div(st_sum.get("fatalities", 0), st_sum.get("employees", 0), 100000)
+        nat_fat    = safe_div(nat_sum.get("fatalities", 0), nat_sum.get("employees", 0), 100000)
 
-            c1, c2, c3 = st.columns(3)
-            c1.metric("💥 TRIR", state_trir, f"National: {nat_trir}")
-            c2.metric("📆 Severity", state_sev, f"National: {nat_sev}")
-            c3.metric("☠️ Fatality Rate", state_fat, f"National: {nat_fat}")
+        # KPI widgets
+        c1, c2, c3 = st.columns(3)
+        c1.metric("💥 TRIR", state_trir, f"National: {nat_trir}")
+        c2.metric("📆 Severity", state_sev, f"National: {nat_sev}")
+        c3.metric("☠️ Fatality Rate", state_fat, f"National: {nat_fat}")
 
-            # 📈 Trend
+        # Trend multi-anno
+        df_trend = df_state.groupby("year")["injuries"].sum().reset_index()
+        if not df_trend.empty:
             st.subheader(f"📈 Injury Trend in {state_choice}")
-            fig_state_trend = px.line(
-                df_state, x="year", y="injuries", markers=True,
-                labels={"year": "Year", "injuries": "Injuries"}
-            )
+            fig_state_trend = px.line(df_trend, x="year", y="injuries", markers=True,
+                                      labels={"year": "Year", "injuries": "Injuries"})
             fig_state_trend.update_traces(hovertemplate="Year %{x}<br>Injuries: %{y:,}")
             st.plotly_chart(fig_state_trend, use_container_width=True)
 
-            # 📋 Summary Table
-            df_state["TRIR (/200k hrs)"] = safe_div(df_state["injuries"], df_state["hoursworked"], 200000)
-            df_state["Fatality Rate (/100k emp)"] = safe_div(df_state["fatalities"], df_state["employees"], 100000)
+        # Tabella riassuntiva
+        df_table = df_state.groupby("year").agg({
+            "injuries": "sum",
+            "fatalities": "sum",
+            "daysawayfromwork": "sum",
+            "jobtransferrestriction": "sum",
+            "hoursworked": "sum",
+            "employees": "sum"
+        }).reset_index()
 
+        df_table["TRIR (/200k hrs)"] = (df_table["injuries"] / df_table["hoursworked"]).fillna(0) * 200000
+        df_table["Fatality Rate (/100k emp)"] = (df_table["fatalities"] / df_table["employees"]).fillna(0) * 100000
+
+        if not df_table.empty:
             st.subheader(f"📋 Summary for {state_choice}")
             st.dataframe(
-                df_state.rename(columns={
+                df_table.rename(columns={
                     "year": "Year",
                     "injuries": "Injuries",
                     "fatalities": "Fatalities",
@@ -240,14 +230,11 @@ with tab2:
                 use_container_width=True
             )
 
-            st.info("""
-            **How to interpret:**
-            - **Lost Days (DAFW)** → total days lost due to injury absences.  
-            - **TRIR (/200k hrs)** → injuries per 200,000 hours worked (~100 FTE-year).  
-            - **Fatality Rate (/100k emp)** → deaths per 100,000 employees.  
-            """)
-        else:
-            st.warning(f"⚠️ No data available for {state_choice}.")
+        st.info("""
+        **How to read these indicators:**
+        - **Lost Days (DAFW)** → total days lost due to injuries with absence from work.  
+        - **TRIR (/200k hrs)** → injuries per 200,000 hours worked (~100 FTE-year).  
+        """)
 
 # -------------------------------------------------------------------
 # TAB 3 - SECTORS
@@ -255,97 +242,76 @@ with tab2:
 with tab3:
     st.header("Sector Analysis")
 
-    # Load distinct macro sectors
-    macros = run_query("""
-        SELECT DISTINCT sector_macro 
-        FROM sectors 
-        WHERE sector_macro IS NOT NULL AND sector_macro <> ''
-        ORDER BY sector_macro;
-    """)["sector_macro"].tolist()
-
+    macros = sorted(df_sectors["sector_macro"].dropna().unique().tolist())
     sector_choice = st.selectbox("🏭 Select a Macro Sector:", macros)
 
-    if sector_choice:
-        # KPIs for selected sector vs national
-        df_sector = run_query("""
-            SELECT SUM(i.injuries) AS injuries,
-                   SUM(i.fatalities) AS fatalities,
-                   SUM(i.hoursworked) AS hoursworked,
-                   SUM(i.employees) AS employees,
-                   SUM(i.daysawayfromwork) AS daysawayfromwork
-            FROM incidents i
-            JOIN sectors s ON i.naics_code = s.naics_code
-            WHERE s.sector_macro = %s;
-        """, [sector_choice])
+    df_sec = incidents_with_state_sector()
+    df_sec = df_sec[df_sec["sector_macro"] == sector_choice]
 
-        df_nat = run_query("""
-            SELECT SUM(injuries) AS injuries,
-                   SUM(fatalities) AS fatalities,
-                   SUM(hoursworked) AS hoursworked,
-                   SUM(employees) AS employees,
-                   SUM(daysawayfromwork) AS daysawayfromwork
-            FROM incidents;
-        """)
+    if not df_sec.empty:
+        nat_sum = incidents_with_state_sector().sum(numeric_only=True)
+        sec_sum = df_sec.sum(numeric_only=True)
 
-        if not df_sector.empty and not df_nat.empty:
-            sec_sum = df_sector.iloc[0]
-            nat_sum = df_nat.iloc[0]
+        # KPI con .get() per evitare KeyError
+        sec_trir = safe_div(sec_sum.get("injuries", 0), sec_sum.get("hoursworked", 0), 200000)
+        nat_trir = safe_div(nat_sum.get("injuries", 0), nat_sum.get("hoursworked", 0), 200000)
 
-            sec_trir = safe_div(sec_sum["injuries"], sec_sum["hoursworked"], 200000)
-            nat_trir = safe_div(nat_sum["injuries"], nat_sum["hoursworked"], 200000)
-            sec_sev  = safe_div(sec_sum["daysawayfromwork"], sec_sum["hoursworked"], 200000)
-            nat_sev  = safe_div(nat_sum["daysawayfromwork"], nat_sum["hoursworked"], 200000)
-            sec_fat  = safe_div(sec_sum["fatalities"], sec_sum["employees"], 100000)
-            nat_fat  = safe_div(nat_sum["fatalities"], nat_sum["employees"], 100000)
+        sec_sev  = safe_div(sec_sum.get("daysawayfromwork", 0), sec_sum.get("hoursworked", 0), 200000)
+        nat_sev  = safe_div(nat_sum.get("daysawayfromwork", 0), nat_sum.get("hoursworked", 0), 200000)
 
-            c1, c2, c3 = st.columns(3)
-            c1.metric("💥 TRIR", sec_trir, f"National: {nat_trir}")
-            c2.metric("📆 Severity", sec_sev, f"National: {nat_sev}")
-            c3.metric("☠️ Fatality Rate", sec_fat, f"National: {nat_fat}")
+        sec_fat  = safe_div(sec_sum.get("fatalities", 0), sec_sum.get("employees", 0), 100000)
+        nat_fat  = safe_div(nat_sum.get("fatalities", 0), nat_sum.get("employees", 0), 100000)
 
-        # 🏭 Top risky sub-sectors (NAICS 3-digit)
-        df_sub = run_query("""
-            SELECT LEFT(i.naics_code::text, 3) AS naics3,
-                   SUM(i.injuries) AS total_injuries
-            FROM incidents i
-            JOIN sectors s ON i.naics_code = s.naics_code
-            WHERE s.sector_macro = %s
-            GROUP BY naics3
-            ORDER BY total_injuries DESC
-            LIMIT 10;
-        """, [sector_choice])
+        # KPI widgets
+        c1, c2, c3 = st.columns(3)
+        c1.metric("💥 TRIR", sec_trir, f"National: {nat_trir}")
+        c2.metric("📆 Severity", sec_sev, f"National: {nat_sev}")
+        c3.metric("☠️ Fatality Rate", sec_fat, f"National: {nat_fat}")
 
-        if not df_sub.empty:
+        # Top risky sub-sectors (NAICS 3-digit)
+        df_sec["naics3"] = df_sec["naics_code"].astype(str).str[:3]
+        top_sub = (
+            df_sec.groupby("naics3")["injuries"]
+            .sum()
+            .reset_index()
+            .sort_values("injuries", ascending=False)
+            .head(10)
+        )
+
+        if not top_sub.empty:
             st.subheader(f"🏭 Top 10 Risky Sub-sectors in {sector_choice}")
-            fig_sub = px.bar(df_sub, x="naics3", y="total_injuries",
-                             labels={"naics3": "NAICS (3-digit)", "total_injuries": "Injuries"})
+            fig_sub = px.bar(top_sub, x="naics3", y="injuries",
+                             labels={"naics3": "NAICS (3-digit)", "injuries": "Injuries"})
             fig_sub.update_traces(hovertemplate="NAICS %{x}<br>Injuries: %{y:,}")
             st.plotly_chart(fig_sub, use_container_width=True)
 
             st.info("""
             **Reading NAICS codes:**
-            - **2 digits** → macro sector (e.g., `23` = Construction).  
-            - **3 digits** → sub-sector (e.g., `236` = Building Construction).  
-            - Value = total injuries recorded in that sub-sector.  
+            - **2 digits** identify the macro sector (e.g., `23` = Construction).  
+            - **3 digits** identify the sub-sector (e.g., `236` = Building Construction).  
+            - Value shown = total injuries recorded in that sub-sector.  
             """)
 
-        # ⚖️ Incident rate per macro sector (injuries / 1000 employees)
-        df_rate = run_query("""
-            SELECT s.sector_macro,
-                   ROUND(SUM(i.injuries)::decimal / NULLIF(SUM(i.employees),0) * 1000, 2) AS incident_rate
-            FROM incidents i
-            JOIN sectors s ON i.naics_code = s.naics_code
-            GROUP BY s.sector_macro
-            HAVING SUM(i.employees) > 0
-            ORDER BY incident_rate DESC;
-        """)
-
+        # Incident rate per macro sector
+        df_rate = incidents_with_state_sector()
         if not df_rate.empty:
-            st.subheader("⚖️ Incident Rate by Macro Sector (injuries / 1000 employees)")
-            fig_rate = px.bar(df_rate, x="incident_rate", y="sector_macro", orientation="h",
-                              labels={"incident_rate": "Injury Rate (/1000 emp)", "sector_macro": "Macro Sector"})
-            fig_rate.update_traces(hovertemplate="<b>%{y}</b><br>Rate: %{x}")
-            st.plotly_chart(fig_rate, use_container_width=True)
+            rate = (
+                df_rate.groupby("sector_macro", dropna=True)
+                .agg({"injuries": "sum", "employees": "sum"})
+                .reset_index()
+            )
+            rate = rate[rate["employees"] > 0]
+            rate["Incident Rate (/1000 emp)"] = (
+                rate["injuries"] / rate["employees"]
+            ).fillna(0) * 1000
+            rate = rate.sort_values("Incident Rate (/1000 emp)", ascending=False)
+
+            if not rate.empty:
+                st.subheader("⚖️ Injury Rate by Macro Sector (injuries / 1000 employees)")
+                fig_rate = px.bar(rate, x="Incident Rate (/1000 emp)", y="sector_macro", orientation="h",
+                                  labels={"sector_macro": "Macro Sector"})
+                fig_rate.update_traces(hovertemplate="<b>%{y}</b><br>Rate: %{x}")
+                st.plotly_chart(fig_rate, use_container_width=True)
 
 # -------------------------------------------------------------------
 # TAB 4 - COMBINED ANALYSIS
@@ -353,97 +319,52 @@ with tab3:
 with tab4:
     st.header("Combined Analysis: State + Sector + Year")
 
-    # Selectors
-    years = run_query("""
-        SELECT DISTINCT year::int AS year
-        FROM incidents
-        WHERE year IS NOT NULL
-        ORDER BY year;
-    """)["year"].tolist()
+    df_all = incidents_with_state_sector()
+    if not df_all.empty:
+        years = sorted(df_all["year"].dropna().unique().astype(int).tolist())
+        states = sorted(df_all["state_name"].dropna().unique().tolist())
+        sectors = sorted(df_all["sector_macro"].dropna().unique().tolist())
 
-    states = run_query("""
-        SELECT DISTINCT state_name
-        FROM regions
-        WHERE state_name IS NOT NULL
-        ORDER BY state_name;
-    """)["state_name"].tolist()
+        year_sel = st.selectbox("📅 Select Year:", years, index=len(years)-1)
+        state_sel = st.selectbox("🗺️ Select State:", states)
+        sector_sel = st.selectbox("🏭 Select Macro Sector:", sectors)
 
-    sectors = run_query("""
-        SELECT DISTINCT sector_macro
-        FROM sectors
-        WHERE sector_macro IS NOT NULL AND sector_macro <> ''
-        ORDER BY sector_macro;
-    """)["sector_macro"].tolist()
+        df_f = df_all[
+            (df_all["year"] == year_sel) &
+            (df_all["state_name"] == state_sel) &
+            (df_all["sector_macro"] == sector_sel)
+        ]
 
-    year_sel = st.selectbox("📅 Select Year:", years, index=len(years)-1 if years else 0)
-    state_sel = st.selectbox("🗺️ Select State:", states, index=0 if states else None)
-    sector_sel = st.selectbox("🏭 Select Macro Sector:", sectors, index=0 if sectors else None)
+        if not df_f.empty:
+            tbl = df_f.agg({
+                "injuries": "sum",
+                "fatalities": "sum",
+                "hoursworked": "sum",
+                "employees": "sum"
+            }).to_frame().T
 
-    # Combined query
-    df_combo = run_query("""
-        SELECT 
-            i.year::int AS year,
-            r.state_name AS state,
-            s.sector_macro AS sector,
-            SUM(i.injuries) AS injuries,
-            SUM(i.fatalities) AS fatalities,
-            SUM(i.hoursworked) AS hoursworked,
-            SUM(i.employees) AS employees
-        FROM incidents i
-        JOIN regions r ON i.state_code = r.state_code
-        JOIN sectors s ON i.naics_code = s.naics_code
-        WHERE i.year::int = %s
-          AND r.state_name = %s
-          AND s.sector_macro = %s
-        GROUP BY i.year, r.state_name, s.sector_macro;
-    """, [year_sel, state_sel, sector_sel])
+            tbl["TRIR (/200k hrs)"] = safe_div(
+                tbl["injuries"].get(0, 0),
+                tbl["hoursworked"].get(0, 0),
+                200000
+            )
 
-    if not df_combo.empty:
-        row = df_combo.iloc[0]
-        trir = safe_div(row["injuries"], row["hoursworked"], 200000)
+            st.subheader(f"📊 {state_sel} – {sector_sel} ({year_sel})")
+            st.dataframe(tbl)
 
-        st.subheader(f"📊 {state_sel} – {sector_sel} ({year_sel})")
-        st.dataframe(pd.DataFrame({
-            "Year": [row["year"]],
-            "State": [row["state"]],
-            "Sector": [row["sector"]],
-            "Injuries": [row["injuries"]],
-            "Fatalities": [row["fatalities"]],
-            "TRIR (/200k hrs)": [trir],
-        }), use_container_width=True)
-
-        # 📈 Trend multi-year for chosen state + sector
-        df_trend = run_query("""
-            SELECT i.year::int AS year,
-                   SUM(i.injuries) AS injuries
-            FROM incidents i
-            JOIN regions r ON i.state_code = r.state_code
-            JOIN sectors s ON i.naics_code = s.naics_code
-            WHERE r.state_name = %s
-              AND s.sector_macro = %s
-            GROUP BY i.year
-            ORDER BY year;
-        """, [state_sel, sector_sel])
-
-        if not df_trend.empty:
+            # Multi-year trend
+            df_tr = (
+                df_all[(df_all["state_name"] == state_sel) & (df_all["sector_macro"] == sector_sel)]
+                .groupby("year")["injuries"].sum().reset_index()
+            )
             st.subheader(f"📈 Injury Trend – {state_sel} ({sector_sel})")
-            fig_tr = px.line(df_trend, x="year", y="injuries", markers=True,
-                             labels={"year": "Year", "injuries": "Injuries"})
-            fig_tr.update_traces(hovertemplate="Year %{x}<br>Injuries: %{y:,}")
+            fig_tr = px.line(df_tr, x="year", y="injuries", markers=True)
             st.plotly_chart(fig_tr, use_container_width=True)
 
-        # 📌 KPI gauge vs national
-        df_nat = run_query("""
-            SELECT 
-                SUM(injuries) AS injuries,
-                SUM(hoursworked) AS hoursworked
-            FROM incidents
-            WHERE year::int = %s;
-        """, [year_sel])
-
-        if not df_nat.empty:
-            val = trir
-            ref = safe_div(df_nat.iloc[0]["injuries"], df_nat.iloc[0]["hoursworked"], 200000)
+            # KPI Gauge
+            nat = df_all[df_all["year"] == year_sel]
+            val = safe_div(tbl["injuries"].get(0, 0), tbl["hoursworked"].get(0, 0), 200000)
+            ref = safe_div(nat["injuries"].sum(), nat["hoursworked"].sum(), 200000)
 
             st.subheader("📌 TRIR vs National Average")
             rng = max(val, ref) * 1.5 if max(val, ref) > 0 else 1
@@ -451,60 +372,13 @@ with tab4:
                 mode="gauge+number+delta",
                 value=val,
                 delta={"reference": ref, "increasing": {"color": "red"}, "decreasing": {"color": "green"}},
-                gauge={
-                    "axis": {"range": [0, rng]},
-                    "bar": {"color": "blue"},
-                    "steps": [
-                        {"range": [0, ref], "color": "lightgreen"},
-                        {"range": [ref, rng], "color": "pink"}
-                    ],
-                },
-                title={"text": f"TRIR {state_sel} – {sector_sel} ({year_sel})"}
+                gauge={"axis": {"range": [0, rng]}}
             ))
             st.plotly_chart(fig_kpi, use_container_width=True)
-
-        # 🧪 Scenario Simulator
-        st.subheader("🧪 Scenario Simulator")
-        cA, cB, cC = st.columns(3)
-        with cA:
-            delta_emp = st.slider("Change in Employees (%)", -30, 30, 0, step=5)
-        with cB:
-            delta_hours = st.slider("Change in Hours Worked (%)", -30, 30, 0, step=5)
-        with cC:
-            delta_inj = st.slider("Change in Injuries (%)", -50, 50, 0, step=5)
-
-        employees = row["employees"]
-        hours = row["hoursworked"]
-        injuries = row["injuries"]
-        fatalities = row["fatalities"]
-
-        emp_adj = max(employees * (1 + delta_emp/100), 1.0) if employees else 0.0
-        hrs_adj = max(hours * (1 + delta_hours/100), 1.0) if hours else 0.0
-        inj_adj = max(injuries * (1 + delta_inj/100), 0.0)
-
-        trir_orig = safe_div(injuries, hours, 200000)
-        fat_orig  = safe_div(fatalities, employees, 100000)
-        trir_new  = safe_div(inj_adj, hrs_adj, 200000)
-        fat_new   = safe_div(fatalities, emp_adj, 100000)
-
-        d1, d2 = st.columns(2)
-        with d1:
-            st.metric("💥 TRIR (original)", trir_orig)
-            st.metric("☠️ Fatality Rate (original)", fat_orig)
-        with d2:
-            st.metric("💥 TRIR (simulated)", trir_new, f"{trir_new - trir_orig:+.2f}")
-            st.metric("☠️ Fatality Rate (simulated)", fat_new, f"{fat_new - fat_orig:+.2f}")
-
-        st.info("""
-        **How to interpret the simulator**
-        - Sliders apply percent changes to denominators/numerators:
-          • Employees → denominator of Fatality Rate  
-          • Hours worked → denominator of TRIR  
-          • Injuries (%) → numerator of TRIR
-        - Recorded fatalities remain historical; this is a what-if tool, not a predictor.
-        """)
+        else:
+            st.warning("⚠️ No data for the selected filters.")
     else:
-        st.warning("⚠️ No data for selected filters.")
+        st.error("⚠️ Combined dataset is empty.")
 
 # -------------------------------------------------------------------
 # TAB 5 - INSIGHTS & EXPORT
@@ -512,129 +386,58 @@ with tab4:
 with tab5:
     st.header("Insights & Export")
 
-    # Trova l'ultimo anno disponibile
-    df_years = run_query("SELECT DISTINCT year::int AS year FROM incidents ORDER BY year;")
-    latest_year = df_years["year"].max() if not df_years.empty else None
+    df_all = incidents_with_state_sector()
+    if not df_all.empty:
+        latest_year = df_all["year"].max()
 
-    if latest_year:
-        st.subheader(f"🔥 Insights for {latest_year}")
+        # Top states
+        df_states = (
+            df_all[df_all["year"] == latest_year]
+            .groupby("state_name")
+            .agg(injuries=("injuries", "sum"), hours=("hoursworked", "sum"))
+            .reset_index()
+        )
+        df_states["TRIR"] = df_states.apply(
+            lambda r: safe_div(r.get("injuries", 0), r.get("hours", 0), 200000), axis=1
+        )
+        df_states = df_states.sort_values("TRIR", ascending=False).head(10)
+        st.subheader(f"🔥 Top 10 States by TRIR ({latest_year})")
+        fig_s = px.bar(df_states, x="TRIR", y="state_name", orientation="h")
+        st.plotly_chart(fig_s, use_container_width=True)
 
-        # 🔝 Top 10 States by TRIR
-        df_states = run_query("""
-            SELECT r.state_name,
-                   SUM(i.injuries) AS injuries,
-                   SUM(i.hoursworked) AS hoursworked,
-                   ROUND(SUM(i.injuries)::decimal / NULLIF(SUM(i.hoursworked),0) * 200000, 2) AS trir
-            FROM incidents i
-            JOIN regions r ON i.state_code = r.state_code
-            WHERE i.year::int = %s
-            GROUP BY r.state_name
-            HAVING SUM(i.hoursworked) > 0
-            ORDER BY trir DESC
-            LIMIT 10;
-        """, [latest_year])
+        # Top sectors
+        df_secs = (
+            df_all[df_all["year"] == latest_year]
+            .groupby("sector_macro")
+            .agg(injuries=("injuries", "sum"), hours=("hoursworked", "sum"))
+            .reset_index()
+        )
+        df_secs["TRIR"] = df_secs.apply(
+            lambda r: safe_div(r.get("injuries", 0), r.get("hours", 0), 200000), axis=1
+        )
+        df_secs = df_secs.sort_values("TRIR", ascending=False).head(10)
+        st.subheader(f"🏭 Top 10 Sectors by TRIR ({latest_year})")
+        fig_m = px.bar(df_secs, x="TRIR", y="sector_macro", orientation="h")
+        st.plotly_chart(fig_m, use_container_width=True)
 
-        if not df_states.empty:
-            st.subheader("🔥 Top 10 States by TRIR")
-            fig_s = px.bar(df_states, x="trir", y="state_name", orientation="h",
-                           labels={"trir": "TRIR", "state_name": "State"})
-            fig_s.update_traces(hovertemplate="<b>%{y}</b><br>TRIR: %{x}")
-            st.plotly_chart(fig_s, use_container_width=True)
-
-        # 🔝 Top 10 Sectors by TRIR
-        df_sectors = run_query("""
-            SELECT s.sector_macro,
-                   SUM(i.injuries) AS injuries,
-                   SUM(i.hoursworked) AS hoursworked,
-                   ROUND(SUM(i.injuries)::decimal / NULLIF(SUM(i.hoursworked),0) * 200000, 2) AS trir
-            FROM incidents i
-            JOIN sectors s ON i.naics_code = s.naics_code
-            WHERE i.year::int = %s
-            GROUP BY s.sector_macro
-            HAVING SUM(i.hoursworked) > 0
-            ORDER BY trir DESC
-            LIMIT 10;
-        """, [latest_year])
-
-        if not df_sectors.empty:
-            st.subheader("🏭 Top 10 Sectors by TRIR")
-            fig_m = px.bar(df_sectors, x="trir", y="sector_macro", orientation="h",
-                           labels={"trir": "TRIR", "sector_macro": "Macro Sector"})
-            fig_m.update_traces(hovertemplate="<b>%{y}</b><br>TRIR: %{x}")
-            st.plotly_chart(fig_m, use_container_width=True)
-
-    # --------------------------
-    # Export
-    # --------------------------
-    st.subheader("📥 Export (Excel / PDF)")
-
-    years = df_years["year"].tolist() if not df_years.empty else []
-    states = run_query("SELECT DISTINCT state_name FROM regions WHERE state_name IS NOT NULL ORDER BY state_name;")["state_name"].tolist()
-    sectors = run_query("SELECT DISTINCT sector_macro FROM sectors WHERE sector_macro IS NOT NULL ORDER BY sector_macro;")["sector_macro"].tolist()
-
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        exp_year = st.selectbox("Year (optional)", [None] + years, index=0)
-    with c2:
-        exp_state = st.selectbox("State (optional)", [None] + states, index=0)
-    with c3:
-        exp_sector = st.selectbox("Macro Sector (optional)", [None] + sectors, index=0)
-
-    # Costruisci la query dinamica
-    query = """
-        SELECT i.year::int AS year,
-               r.state_name AS state,
-               s.sector_macro AS sector,
-               SUM(i.injuries) AS injuries,
-               SUM(i.fatalities) AS fatalities,
-               SUM(i.hoursworked) AS hours,
-               ROUND(SUM(i.injuries)::decimal / NULLIF(SUM(i.hoursworked),0) * 200000, 2) AS trir
-        FROM incidents i
-        JOIN regions r ON i.state_code = r.state_code
-        JOIN sectors s ON i.naics_code = s.naics_code
-        WHERE 1=1
-    """
-    params = []
-    if exp_year:
-        query += " AND i.year::int = %s"
-        params.append(exp_year)
-    if exp_state:
-        query += " AND r.state_name = %s"
-        params.append(exp_state)
-    if exp_sector:
-        query += " AND s.sector_macro = %s"
-        params.append(exp_sector)
-
-    query += " GROUP BY i.year, r.state_name, s.sector_macro ORDER BY i.year, r.state_name, s.sector_macro;"
-
-    df_report = run_query(query, params)
-
-    if not df_report.empty:
-        # Excel export
+        # Export
         buffer_xlsx = io.BytesIO()
         with pd.ExcelWriter(buffer_xlsx, engine="xlsxwriter") as writer:
-            df_report.to_excel(writer, index=False, sheet_name="HSE Report")
+            df_all.to_excel(writer, index=False, sheet_name="Incidents")
         st.download_button("⬇️ Download Excel", buffer_xlsx.getvalue(), "hse_report.xlsx")
 
-        # PDF export
         buffer_pdf = io.BytesIO()
         doc = SimpleDocTemplate(buffer_pdf, pagesize=A4)
         styles = getSampleStyleSheet()
         elements = [Paragraph("📊 HSE Report", styles["Title"]), Spacer(1, 8)]
-        filt = f"Filters — Year: {exp_year or 'All'} | State: {exp_state or 'All'} | Sector: {exp_sector or 'All'}"
-        elements.append(Paragraph(filt, styles["Normal"]))
-        elements.append(Spacer(1, 8))
-
-        data = [df_report.columns.tolist()] + df_report.astype(str).values.tolist()
+        data = [df_states.columns.tolist()] + df_states.astype(str).values.tolist()
         table = Table(data, repeatRows=1)
         table.setStyle(TableStyle([
             ("BACKGROUND", (0,0), (-1,0), colors.lightblue),
             ("GRID", (0,0), (-1,-1), 0.25, colors.grey),
-            ("ALIGN", (0,0), (-1,-1), "CENTER"),
         ]))
         elements.append(table)
         doc.build(elements)
-
         st.download_button("⬇️ Download PDF", buffer_pdf.getvalue(), "hse_report.pdf")
     else:
-        st.warning("⚠️ No data available for selected export filters.")
+        st.error("⚠️ No data available for Insights & Export.")
