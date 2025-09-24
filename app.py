@@ -377,7 +377,12 @@ with tab4:
             ref = safe_div(nat["injuries"].sum(), nat["hoursworked"].sum(), 200000)
 
             st.subheader("📌 TRIR vs National Average")
-            rng = max(val, ref) * 1.5 if max(val, ref) > 0 else 1
+            try:
+                rng_base = float(max(float(val), float(ref)))
+            except Exception:
+                rng_base = 1.0
+
+            rng = rng_base * 1.5 if rng_base > 0 else 1
             fig_kpi = go.Figure(go.Indicator(
                 mode="gauge+number+delta",
                 value=val,
