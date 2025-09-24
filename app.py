@@ -427,7 +427,8 @@ with tab4:
             c1, c2 = st.columns(2)
             with c1:
                 st.subheader("📌 TRIR vs National Average")
-                rng = max(val_trir, ref_trir) * 1.5 if max(val_trir, ref_trir) > 0 else 1
+                rng_base = max(val_trir, ref_trir)
+                rng = rng_base * 1.5 if rng_base > 0 else 1
                 fig_trir = go.Figure(go.Indicator(
                     mode="gauge+number+delta",
                     value=val_trir,
