@@ -96,9 +96,12 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 # TAB 1 - OVERVIEW
 # -------------------------------------------------------------------
 with tab1:
-    st.header("National Overview")
+    st.markdown(
+        "<h2 style='margin-bottom:0'>National Overview</h2>",
+        unsafe_allow_html=True
+    )
 
-    # 1) Aggregated KPIs directly from Postgres
+    # 1) Aggregated KPIs
     df_grp = run_query("""
         SELECT year::int AS year,
                SUM(injuries) AS injuries,
@@ -114,12 +117,11 @@ with tab1:
     if df_grp.empty:
         st.error("⚠️ No data available in 'incidents'.")
     else:
-        # Compute KPIs
+        # KPIs
         df_grp["TRIR"] = (df_grp["injuries"] / df_grp["hoursworked"]).fillna(0) * 200000
         df_grp["SeverityRate"] = (df_grp["daysawayfromwork"] / df_grp["hoursworked"]).fillna(0) * 200000
         df_grp["FatalityRate"] = (df_grp["fatalities"] / df_grp["employees"]).fillna(0) * 100000
 
-        # Latest vs previous
         latest = df_grp.iloc[-1]
         prev = df_grp.iloc[-2] if len(df_grp) > 1 else None
 
@@ -127,21 +129,26 @@ with tab1:
             return f"{latest[metric] - prev[metric]:+.2f}" if prev is not None else "N/A"
 
         c1, c2, c3 = st.columns(3)
-        c1.metric("💥 TRIR", f"{latest['TRIR']:.2f}", f"Δ vs {int(prev['year'])}: {delta_str('TRIR')}" if prev is not None else "")
-        c2.metric("📆 Severity Rate", f"{latest['SeverityRate']:.2f}", f"Δ vs {int(prev['year'])}: {delta_str('SeverityRate')}" if prev is not None else "")
-        c3.metric("☠️ Fatality Rate", f"{latest['FatalityRate']:.2f}", f"Δ vs {int(prev['year'])}: {delta_str('FatalityRate')}" if prev is not None else "")
+        c1.metric("💥 TRIR", f"{latest['TRIR']:.2f}", f"Δ {int(prev['year'])}: {delta_str('TRIR')}" if prev is not None else "")
+        c2.metric("📆 Severity Rate", f"{latest['SeverityRate']:.2f}", f"Δ {int(prev['year'])}: {delta_str('SeverityRate')}" if prev is not None else "")
+        c3.metric("☠️ Fatality Rate", f"{latest['FatalityRate']:.2f}", f"Δ {int(prev['year'])}: {delta_str('FatalityRate')}" if prev is not None else "")
 
-        st.info(f"""
-        **Indicators (Year {int(latest['year'])}):**
-        - **TRIR** → injuries per 200,000 hours worked (~100 FTEs).  
-        - **Severity Rate** → lost workdays per 200,000 hours worked.  
-        - **Fatality Rate** → deaths per 100,000 employees.  
-        """)
+        # Compact info box
+        st.markdown("""
+        <div style='background:#f0f2f6;padding:12px;border-radius:8px;margin-top:10px'>
+        <b>📌 Indicator definitions</b><br>
+        • <b>TRIR</b> = Injuries ÷ Hours × 200,000<br>
+        • <b>Severity</b> = Days lost ÷ Hours × 200,000<br>
+        • <b>Fatality Rate</b> = Fatalities ÷ Employees × 100,000
+        </div>
+        """, unsafe_allow_html=True)
 
-        # 2) National trend line
+        # 2) National injury trend
         st.subheader("📈 National Injury Trend")
-        fig_trend = px.line(df_grp, x="year", y="injuries", markers=True,
-                            labels={"year": "Year", "injuries": "Injuries"})
+        fig_trend = px.line(
+            df_grp, x="year", y="injuries", markers=True,
+            labels={"year": "Year", "injuries": "Injuries"}
+        )
         fig_trend.update_traces(hovertemplate="Year %{x}<br>Injuries: %{y:,}")
         st.plotly_chart(fig_trend, use_container_width=True)
 
@@ -165,7 +172,7 @@ with tab1:
                 locations="state_code", locationmode="USA-states",
                 color="injuries", hover_name="state_name",
                 hover_data={"state_code": False, "injuries": True},
-                scope="usa", color_continuous_scale="Reds",
+                scope="usa", color_continuous_scale="Blues",
                 labels={"injuries": "Injuries"}
             )
             st.plotly_chart(fig_map, use_container_width=True)
