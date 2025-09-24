@@ -260,6 +260,7 @@ with tab2:
         df_table["TRIR (/200k hrs)"] = (
             df_table["injuries"] / df_table["hoursworked"]
         ).fillna(0) * 200000
+
         df_table["Fatality Rate (/100k emp)"] = (
             df_table["fatalities"] / df_table["employees"]
         ).fillna(0) * 100000
@@ -272,7 +273,9 @@ with tab2:
                     "injuries": "Injuries",
                     "fatalities": "Fatalities",
                     "daysawayfromwork": "Lost Days (DAFW)",
-                    "jobtransferrestriction": "Work Restrictions (DJTR)"
+                    "jobtransferrestriction": "Work Restrictions (DJTR)",
+                    "hoursworked": "Hours Worked",
+                    "employees": "Employees"
                 }),
                 use_container_width=True
             )
