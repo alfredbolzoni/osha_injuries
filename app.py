@@ -413,11 +413,8 @@ with tab4:
                             "value": ref_trir
                         }
                     },
-                    number={"font": {"size": 36}, "suffix": ""},  # <-- uniformato al Fatality Rate
-                    title={
-                        "text": f"TRIR {state_sel} – {sector_sel} ({year_sel})",
-                        "font": {"size": 14}
-                    }
+                    number={"font": {"size": 36, "color": "black"}},
+                    title={"text": f"TRIR {state_sel} – {sector_sel} ({year_sel})", "font": {"size": 14}}
                 ))
                 st.plotly_chart(fig_trir, use_container_width=True)
 
