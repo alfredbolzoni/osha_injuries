@@ -404,6 +404,8 @@ with tab4:
                 "hoursworked": "sum",
                 "employees": "sum"
             }).to_frame().T
+
+            # Rinomina le colonne per leggibilità
             tbl = tbl.rename(columns={
                 "injuries": "Injuries",
                 "fatalities": "Fatalities",
@@ -411,10 +413,10 @@ with tab4:
                 "employees": "Employees"
             })
 
-            tbl["TRIR (/200k hrs)"] = safe_div(
-                tbl["injuries"].get(0, 0),
-                tbl["hoursworked"].get(0, 0),
-                200000
+            # Usa i nuovi nomi nelle formule
+            tbl["TRIR (/200k hrs)"] = calc_trir(
+                tbl["Injuries"].iloc[0],
+                tbl["Hours Worked"].iloc[0]
             )
 
             st.subheader(f"📊 {state_sel} – {sector_sel} ({year_sel})")
