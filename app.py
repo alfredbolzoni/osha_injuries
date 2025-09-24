@@ -330,7 +330,7 @@ with tab4:
     st.header("Combined Analysis: State + Sector + Year")
 
     df_all = incidents_with_state_sector()
-    if not df_all.empty:
+    if not df_all.empty:   # primo if
         years = sorted(df_all["year"].dropna().unique().astype(int).tolist())
         states = sorted(df_all["state_name"].dropna().unique().tolist())
         sectors = sorted(df_all["sector_macro"].dropna().unique().tolist())
@@ -345,7 +345,7 @@ with tab4:
             (df_all["sector_macro"] == sector_sel)
         ]
 
-        if not df_f.empty:
+        if not df_f.empty:   # secondo if
             tbl = df_f.agg({
                 "injuries": "sum",
                 "fatalities": "sum",
@@ -390,73 +390,73 @@ with tab4:
                 gauge={"axis": {"range": [0, rng]}}
             ))
             st.plotly_chart(fig_kpi, use_container_width=True)
-                    # ==========================
-        # 3) Scenario Simulator
-        # ==========================
-        st.subheader("🧪 Scenario Simulator")
 
-        cA, cB, cC = st.columns(3)
-        with cA:
-            delta_emp = st.slider("Change in Employees (%)", -30, 30, 0, step=5)
-        with cB:
-            delta_hours = st.slider("Change in Hours Worked (%)", -30, 30, 0, step=5)
-        with cC:
-            delta_inj = st.slider("Change in Injuries (%)", -50, 50, 0, step=5)
+            # ==========================
+            # 3) Scenario Simulator
+            # ==========================
+            st.subheader("🧪 Scenario Simulator")
 
-        st.caption("👷 Employees and ⏱️ Hours affect the **denominator** of Fatality Rate and TRIR respectively. Injuries % adjusts the **numerator** for TRIR.")
+            cA, cB, cC = st.columns(3)
+            with cA:
+                delta_emp = st.slider("Change in Employees (%)", -30, 30, 0, step=5)
+            with cB:
+                delta_hours = st.slider("Change in Hours Worked (%)", -30, 30, 0, step=5)
+            with cC:
+                delta_inj = st.slider("Change in Injuries (%)", -50, 50, 0, step=5)
 
-        # Dataset base per i calcoli
-        base = df_f.agg({
-            "injuries": "sum",
-            "fatalities": "sum",
-            "employees": "sum",
-            "hoursworked": "sum"
-        })
+            st.caption("👷 Employees and ⏱️ Hours affect the **denominator** of Fatality Rate and TRIR respectively. Injuries % adjusts the **numerator** for TRIR.")
 
-        injuries = float(base.get("injuries", 0) or 0)
-        fatalities = float(base.get("fatalities", 0) or 0)
-        employees = float(base.get("employees", 0) or 0)
-        hours = float(base.get("hoursworked", 0) or 0)
+            # Dataset base per i calcoli
+            base = df_f.agg({
+                "injuries": "sum",
+                "fatalities": "sum",
+                "employees": "sum",
+                "hoursworked": "sum"
+            })
 
-        # Applica variazioni
-        employees_adj = max(employees * (1 + delta_emp/100), 1.0) if employees else 0.0
-        hours_adj     = max(hours * (1 + delta_hours/100), 1.0) if hours else 0.0
-        injuries_adj  = max(injuries * (1 + delta_inj/100), 0.0)
+            injuries = float(base.get("injuries", 0) or 0)
+            fatalities = float(base.get("fatalities", 0) or 0)
+            employees = float(base.get("employees", 0) or 0)
+            hours = float(base.get("hoursworked", 0) or 0)
 
-        # KPI originali
-        trir_orig = safe_div(injuries, hours, 200000)
-        fatality_orig = safe_div(fatalities, employees, 100000)
+            # Applica variazioni
+            employees_adj = max(employees * (1 + delta_emp/100), 1.0) if employees else 0.0
+            hours_adj     = max(hours * (1 + delta_hours/100), 1.0) if hours else 0.0
+            injuries_adj  = max(injuries * (1 + delta_inj/100), 0.0)
 
-        # KPI simulati
-        trir_new = safe_div(injuries_adj, hours_adj, 200000)
-        fatality_new = safe_div(fatalities, employees_adj, 100000)
+            # KPI originali
+            trir_orig = safe_div(injuries, hours, 200000)
+            fatality_orig = safe_div(fatalities, employees, 100000)
 
-        c1, c2 = st.columns(2)
-        with c1:
-            st.metric("💥 TRIR (original)", f"{trir_orig:.2f}")
-            st.metric("☠️ Fatality Rate (original)", f"{fatality_orig:.2f}")
-        with c2:
-            st.metric("💥 TRIR (simulated)", f"{trir_new:.2f}", f"{trir_new - trir_orig:+.2f}")
-            st.metric("☠️ Fatality Rate (simulated)", f"{fatality_new:.2f}", f"{fatality_new - fatality_orig:+.2f}")
+            # KPI simulati
+            trir_new = safe_div(injuries_adj, hours_adj, 200000)
+            fatality_new = safe_div(fatalities, employees_adj, 100000)
 
-        st.info(f"""
-        **How to interpret the simulator**
+            c1, c2 = st.columns(2)
+            with c1:
+                st.metric("💥 TRIR (original)", f"{trir_orig:.2f}")
+                st.metric("☠️ Fatality Rate (original)", f"{fatality_orig:.2f}")
+            with c2:
+                st.metric("💥 TRIR (simulated)", f"{trir_new:.2f}", f"{trir_new - trir_orig:+.2f}")
+                st.metric("☠️ Fatality Rate (simulated)", f"{fatality_new:.2f}", f"{fatality_new - fatality_orig:+.2f}")
 
-        - Sliders adjust **percent changes** to denominators and numerators:  
-          • Employees (👷) → denominator of Fatality Rate  
-          • Hours worked (⏱️) → denominator of TRIR  
-          • Injuries (%) → numerator of TRIR
-        - Recorded events (fatalities) remain historical; we do not forecast events.
-        - Formulas: TRIR = (Injuries ÷ Hours) × 200,000; Fatality Rate = (Fatalities ÷ Employees) × 100,000.
-        - Purpose: quick **what-if analysis** to assess risk metrics under alternative operating conditions.
-        """)
-    else:
+            st.info(f"""
+            **How to interpret the simulator**
+
+            - Sliders adjust **percent changes** to denominators and numerators:  
+              • Employees (👷) → denominator of Fatality Rate  
+              • Hours worked (⏱️) → denominator of TRIR  
+              • Injuries (%) → numerator of TRIR
+            - Recorded events (fatalities) remain historical; we do not forecast events.
+            - Formulas: TRIR = (Injuries ÷ Hours) × 200,000; Fatality Rate = (Fatalities ÷ Employees) × 100,000.
+            - Purpose: quick **what-if analysis** to assess risk metrics under alternative operating conditions.
+            """)
+
+        else:   # chiude il secondo if (df_f vuoto)
             st.warning("⚠️ No data for the selected filters.")
-else:
-    st.error("⚠️ Combined dataset is empty.")
 
-
-
+    else:   # chiude il primo if (df_all vuoto)
+        st.error("⚠️ Combined dataset is empty.")
 
 # -------------------------------------------------------------------
 # TAB 5 - INSIGHTS & EXPORT
