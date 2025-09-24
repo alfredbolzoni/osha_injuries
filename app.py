@@ -49,13 +49,23 @@ def load_regions():
 def load_sectors():
     return run_query("SELECT naics_code, sector_macro FROM sectors;")
 
-@st.cache_data(show_spinner=False, ttl=600)
+@st.cache_data(show_spinner=True, ttl=3600)
 def load_incidents():
+    """
+    Load incidents aggregated by year + state_code + naics_code.
+    This reduces the dataset size massively while keeping all metrics usable.
+    """
     return run_query("""
         SELECT year, state_code, naics_code,
-               injuries, fatalities, hoursworked,
-               employees, daysawayfromwork, jobtransferrestriction
-        FROM incidents;
+               SUM(injuries) AS injuries,
+               SUM(fatalities) AS fatalities,
+               SUM(hoursworked) AS hoursworked,
+               SUM(employees) AS employees,
+               SUM(daysawayfromwork) AS daysawayfromwork,
+               SUM(jobtransferrestriction) AS jobtransferrestriction
+        FROM incidents
+        GROUP BY year, state_code, naics_code
+        ORDER BY year, state_code, naics_code;
     """)
 
 df_regions = load_regions()
