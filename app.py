@@ -601,13 +601,21 @@ with tab5:
             .reset_index()
             .rename(columns={"sector_macro": "Sector"})
         )
+
         df_secs["TRIR"] = df_secs.apply(
             lambda r: safe_div(r.get("injuries", 0), r.get("hours", 0), 200000), axis=1
         )
         df_secs = df_secs.sort_values("TRIR", ascending=False).head(10)
 
         st.subheader(f"🏭 Top 10 Sectors by TRIR ({latest_year})")
-        fig_m = px.bar(df_secs, x="TRIR", y="Sector", orientation="h")
+        fig_m = px.bar(
+            df_secs,
+            x="TRIR",
+            y="Sector",
+            orientation="h",
+            labels={"TRIR": "TRIR", "Sector": "Sector"}
+        )
+        fig_m.update_layout(yaxis_title="Sector", xaxis_title="TRIR")
         st.plotly_chart(fig_m, use_container_width=True)
 
         # Export
