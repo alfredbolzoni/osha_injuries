@@ -384,9 +384,6 @@ with tab4:
 
             c1, c2 = st.columns(2)
 
-            # -------------------------------
-            # TRIR Gauge
-            # -------------------------------
             with c1:
                 st.subheader("📌 TRIR vs National Average")
                 try:
@@ -401,8 +398,7 @@ with tab4:
                     delta={
                         "reference": ref_trir,
                         "increasing": {"color": "red"},
-                        "decreasing": {"color": "green"},
-                        "font": {"size": 14}   # delta più piccolo
+                        "decreasing": {"color": "green"}
                     },
                     gauge={
                         "axis": {"range": [0, rng]},
@@ -417,18 +413,11 @@ with tab4:
                             "value": ref_trir
                         }
                     },
-                    number={"font": {"size": 28, "color": "black"}},
-                    title={
-                        "text": f"TRIR {state_sel} – {sector_sel} ({year_sel})",
-                        "font": {"size": 14},
-                        "position": "top center"
-                    }
+                    number={"font": {"size": 36, "color": "black"}},
+                    title={"text": f"TRIR {state_sel} – {sector_sel} ({year_sel})", "font": {"size": 14}}
                 ))
                 st.plotly_chart(fig_trir, use_container_width=True)
 
-            # -------------------------------
-            # Fatality Rate Gauge
-            # -------------------------------
             with c2:
                 st.subheader("📌 Fatality Rate vs National Average")
                 try:
@@ -440,12 +429,7 @@ with tab4:
                 fig_fat = go.Figure(go.Indicator(
                     mode="gauge+number+delta",
                     value=val_fat,
-                    delta={
-                        "reference": ref_fat,
-                        "increasing": {"color": "red"},
-                        "decreasing": {"color": "green"},
-                        "font": {"size": 14}   # delta più piccolo
-                    },
+                    delta={"reference": ref_fat, "increasing": {"color": "red"}, "decreasing": {"color": "green"}},
                     gauge={
                         "axis": {"range": [0, rng]},
                         "bar": {"color": "blue"},
@@ -459,12 +443,7 @@ with tab4:
                             "value": ref_fat
                         }
                     },
-                    number={"font": {"size": 28, "color": "black"}, "suffix": "/100k emp"},
-                    title={
-                        "text": f"Fatality Rate {state_sel} – {sector_sel} ({year_sel})",
-                        "font": {"size": 14},
-                        "position": "top center"
-                    }
+                    title={"text": f"Fatality Rate {state_sel} – {sector_sel} ({year_sel})"}
                 ))
                 st.plotly_chart(fig_fat, use_container_width=True)
 
