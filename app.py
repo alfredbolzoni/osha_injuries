@@ -88,23 +88,29 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 with tab1:
     st.header("National Overview")
 
-    if df_inc.empty:
+    # Query diretta ad aggregare lato DB (molto più leggero)
+    df_grp = run_query("""
+        SELECT year,
+               SUM(injuries) AS injuries,
+               SUM(fatalities) AS fatalities,
+               SUM(hoursworked) AS hoursworked,
+               SUM(employees) AS employees,
+               SUM(daysawayfromwork) AS daysawayfromwork
+        FROM incidents
+        GROUP BY year
+        ORDER BY year;
+    """)
+
+    if df_grp.empty:
         st.error("⚠️ No data available in 'incidents'.")
     else:
-        grp = df_inc.groupby("year").agg({
-            "injuries": "sum",
-            "fatalities": "sum",
-            "hoursworked": "sum",
-            "employees": "sum",
-            "daysawayfromwork": "sum"
-        }).reset_index().sort_values("year")
+        # Calcoli KPI direttamente su df piccolo (6 righe = anni)
+        df_grp["TRIR"] = (df_grp["injuries"] / df_grp["hoursworked"]).fillna(0) * 200000
+        df_grp["SeverityRate"] = (df_grp["daysawayfromwork"] / df_grp["hoursworked"]).fillna(0) * 200000
+        df_grp["FatalityRate"] = (df_grp["fatalities"] / df_grp["employees"]).fillna(0) * 100000
 
-        grp["TRIR"] = (grp["injuries"] / grp["hoursworked"]).fillna(0) * 200000
-        grp["SeverityRate"] = (grp["daysawayfromwork"] / grp["hoursworked"]).fillna(0) * 200000
-        grp["FatalityRate"] = (grp["fatalities"] / grp["employees"]).fillna(0) * 100000
-
-        latest = grp.iloc[-1]
-        prev = grp.iloc[-2] if len(grp) > 1 else None
+        latest = df_grp.iloc[-1]
+        prev = df_grp.iloc[-2] if len(df_grp) > 1 else None
 
         def delta_str(metric):
             if prev is None:
@@ -118,7 +124,7 @@ with tab1:
 
         # Trend
         st.subheader("📈 National Injury Trend")
-        fig_trend = px.line(grp, x="year", y="injuries", markers=True,
+        fig_trend = px.line(df_grp, x="year", y="injuries", markers=True,
                             labels={"year": "Year", "injuries": "Injuries"})
         fig_trend.update_traces(hovertemplate="Year %{x}<br>Injuries: %{y:,}")
         st.plotly_chart(fig_trend, use_container_width=True)
