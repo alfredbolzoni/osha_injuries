@@ -371,42 +371,76 @@ with tab4:
             fig_tr = px.line(df_tr, x="year", y="injuries", markers=True)
             st.plotly_chart(fig_tr, use_container_width=True)
 
-            # KPI Gauge
+            # KPI Gauges
             nat = df_all[df_all["year"] == year_sel]
-            val = safe_div(tbl["injuries"].get(0, 0), tbl["hoursworked"].get(0, 0), 200000)
-            ref = safe_div(nat["injuries"].sum(), nat["hoursworked"].sum(), 200000)
 
-            st.subheader("📌 TRIR vs National Average")
-            try:
-                rng_base = float(max(float(val), float(ref)))
-            except Exception:
-                rng_base = 1.0
+            # Valori TRIR
+            val_trir = safe_div(tbl["injuries"].get(0, 0), tbl["hoursworked"].get(0, 0), 200000)
+            ref_trir = safe_div(nat["injuries"].sum(), nat["hoursworked"].sum(), 200000)
 
-            rng = rng_base * 1.5 if rng_base > 0 else 1
-            fig_kpi = go.Figure(go.Indicator(
-                mode="gauge+number+delta",
-                value=val,
-                delta={
-                    "reference": ref,
-                    "increasing": {"color": "red"},
-                    "decreasing": {"color": "green"}
-                },
-                gauge={
-                    "axis": {"range": [0, rng]},
-                    "bar": {"color": "blue"},
-                    "steps": [
-                        {"range": [0, ref], "color": "lightgreen"},   # buono se <= media
-                        {"range": [ref, rng], "color": "pink"}        # cattivo se > media
-                    ],
-                    "threshold": {
-                        "line": {"color": "black", "width": 3},
-                        "thickness": 0.75,
-                        "value": ref
-                    }
-                },
-                title={"text": f"TRIR {state_sel} – {sector_sel} ({year_sel})"}
-            ))
-            st.plotly_chart(fig_kpi, use_container_width=True)
+            # Valori Fatality Rate
+            val_fat = safe_div(tbl["fatalities"].get(0, 0), tbl["employees"].get(0, 0), 100000)
+            ref_fat = safe_div(nat["fatalities"].sum(), nat["employees"].sum(), 100000)
+
+            c1, c2 = st.columns(2)
+
+            with c1:
+                st.subheader("📌 TRIR vs National Average")
+                try:
+                    rng_base = float(max(val_trir, ref_trir))
+                except Exception:
+                    rng_base = 1.0
+                rng = rng_base * 1.5 if rng_base > 0 else 1
+
+                fig_trir = go.Figure(go.Indicator(
+                    mode="gauge+number+delta",
+                    value=val_trir,
+                    delta={"reference": ref_trir, "increasing": {"color": "red"}, "decreasing": {"color": "green"}},
+                    gauge={
+                        "axis": {"range": [0, rng]},
+                        "bar": {"color": "blue"},
+                        "steps": [
+                            {"range": [0, ref_trir], "color": "lightgreen"},
+                            {"range": [ref_trir, rng], "color": "pink"}
+                        ],
+                        "threshold": {
+                            "line": {"color": "black", "width": 3},
+                            "thickness": 0.75,
+                            "value": ref_trir
+                        }
+                    },
+                    title={"text": f"TRIR {state_sel} – {sector_sel} ({year_sel})"}
+                ))
+                st.plotly_chart(fig_trir, use_container_width=True)
+
+            with c2:
+                st.subheader("📌 Fatality Rate vs National Average")
+                try:
+                    rng_base = float(max(val_fat, ref_fat))
+                except Exception:
+                    rng_base = 1.0
+                rng = rng_base * 1.5 if rng_base > 0 else 1
+
+                fig_fat = go.Figure(go.Indicator(
+                    mode="gauge+number+delta",
+                    value=val_fat,
+                    delta={"reference": ref_fat, "increasing": {"color": "red"}, "decreasing": {"color": "green"}},
+                    gauge={
+                        "axis": {"range": [0, rng]},
+                        "bar": {"color": "blue"},
+                        "steps": [
+                            {"range": [0, ref_fat], "color": "lightgreen"},
+                            {"range": [ref_fat, rng], "color": "pink"}
+                        ],
+                        "threshold": {
+                            "line": {"color": "black", "width": 3},
+                            "thickness": 0.75,
+                            "value": ref_fat
+                        }
+                    },
+                    title={"text": f"Fatality Rate {state_sel} – {sector_sel} ({year_sel})"}
+                ))
+                st.plotly_chart(fig_fat, use_container_width=True)
 
             # ==========================
             # 3) Scenario Simulator
