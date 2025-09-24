@@ -581,15 +581,16 @@ with tab5:
             df_all[df_all["year"] == latest_year]
             .groupby("state_name")
             .agg(injuries=("injuries", "sum"), hours=("hoursworked", "sum"))
-            .rename(columns={"state_name": "State"})
             .reset_index()
+            .rename(columns={"state_name": "State"})
         )
         df_states["TRIR"] = df_states.apply(
             lambda r: safe_div(r.get("injuries", 0), r.get("hours", 0), 200000), axis=1
         )
         df_states = df_states.sort_values("TRIR", ascending=False).head(10)
+
         st.subheader(f"🔥 Top 10 States by TRIR ({latest_year})")
-        fig_s = px.bar(df_states, x="TRIR", y="state_name", orientation="h")
+        fig_s = px.bar(df_states, x="TRIR", y="State", orientation="h")
         st.plotly_chart(fig_s, use_container_width=True)
 
         # Top sectors
