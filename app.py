@@ -580,14 +580,8 @@ with tab5:
         df_states = (
             df_all[df_all["year"] == latest_year]
             .groupby("state_name")
-            df_states = (
-                df_all[df_all["year"] == latest_year]
-                .groupby("state_name")
-                .agg(injuries=("injuries", "sum"), hours=("hoursworked", "sum"))
-                .reset_index()
-                .rename(columns={"state_name": "State"})
-            )
             .agg(injuries=("injuries", "sum"), hours=("hoursworked", "sum"))
+            .rename(columns={"state_name": "State"})
             .reset_index()
         )
         df_states["TRIR"] = df_states.apply(
