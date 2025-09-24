@@ -395,7 +395,11 @@ with tab4:
                 fig_trir = go.Figure(go.Indicator(
                     mode="gauge+number+delta",
                     value=val_trir,
-                    delta={"reference": ref_trir, "increasing": {"color": "red"}, "decreasing": {"color": "green"}},
+                    delta={
+                        "reference": ref_trir,
+                        "increasing": {"color": "red"},
+                        "decreasing": {"color": "green"}
+                    },
                     gauge={
                         "axis": {"range": [0, rng]},
                         "bar": {"color": "blue"},
@@ -409,7 +413,8 @@ with tab4:
                             "value": ref_trir
                         }
                     },
-                    title={"text": f"TRIR {state_sel} – {sector_sel} ({year_sel})"}
+                    number={"font": {"size": 28}, "suffix": ""},  # <- dimensione e styling numero
+                    title={"text": f"TRIR {state_sel} – {sector_sel} ({year_sel})", "font": {"size": 14}}
                 ))
                 st.plotly_chart(fig_trir, use_container_width=True)
 
