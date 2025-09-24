@@ -188,7 +188,6 @@ with tab2:
         # aggregati nazionale e stato
         nat_sum = incidents_with_state().sum(numeric_only=True)
         st_sum = df_state.sum(numeric_only=True)
-        render_metrics(st_sum, nat_sum, state_choice))
 
         # KPI con .get() per evitare KeyError
         state_trir = safe_div(st_sum.get("injuries", 0), st_sum.get("hoursworked", 0), 200000)
@@ -260,9 +259,8 @@ with tab3:
     df_sec = df_sec[df_sec["sector_macro"] == sector_choice]
 
     if not df_sec.empty:
-        nat_sum = incidents_with_state().sum(numeric_only=True)
-        st_sum = df_state.sum(numeric_only=True)
-        render_metrics(st_sum, nat_sum, state_choice)
+        nat_sum = incidents_with_state_sector().sum(numeric_only=True)
+        sec_sum = df_sec.sum(numeric_only=True)
 
         # KPI con .get() per evitare KeyError
         sec_trir = safe_div(sec_sum.get("injuries", 0), sec_sum.get("hoursworked", 0), 200000)
