@@ -386,8 +386,25 @@ with tab4:
             fig_kpi = go.Figure(go.Indicator(
                 mode="gauge+number+delta",
                 value=val,
-                delta={"reference": ref, "increasing": {"color": "red"}, "decreasing": {"color": "green"}},
-                gauge={"axis": {"range": [0, rng]}}
+                delta={
+                    "reference": ref,
+                    "increasing": {"color": "red"},
+                    "decreasing": {"color": "green"}
+                },
+                gauge={
+                    "axis": {"range": [0, rng]},
+                    "bar": {"color": "blue"},
+                    "steps": [
+                        {"range": [0, ref], "color": "lightgreen"},   # buono se <= media
+                        {"range": [ref, rng], "color": "pink"}        # cattivo se > media
+                    ],
+                    "threshold": {
+                        "line": {"color": "black", "width": 3},
+                        "thickness": 0.75,
+                        "value": ref
+                    }
+                },
+                title={"text": f"TRIR {state_sel} – {sector_sel} ({year_sel})"}
             ))
             st.plotly_chart(fig_kpi, use_container_width=True)
 
