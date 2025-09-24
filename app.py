@@ -513,13 +513,16 @@ with tab4:
 # TAB 5 - INSIGHTS & EXPORT
 # -------------------------------------------------------------------
 with tab5:
-    st.header("Insights & Export")
+    st.markdown(
+        "<h2 style='margin-bottom:0'>Insights & Export</h2>",
+        unsafe_allow_html=True
+    )
 
     df_all = incidents_with_state_sector()
     if not df_all.empty:
         latest_year = df_all["year"].max()
 
-        # Top states
+        # 🔝 Top States by TRIR
         df_states = (
             df_all[df_all["year"] == latest_year]
             .groupby("state_name")
@@ -530,11 +533,16 @@ with tab5:
             lambda r: safe_div(r.get("injuries", 0), r.get("hours", 0), 200000), axis=1
         )
         df_states = df_states.sort_values("TRIR", ascending=False).head(10)
+
         st.subheader(f"🔥 Top 10 States by TRIR ({latest_year})")
-        fig_s = px.bar(df_states, x="TRIR", y="state_name", orientation="h")
+        fig_s = px.bar(
+            df_states, x="TRIR", y="state_name", orientation="h",
+            labels={"state_name": "State", "TRIR": "TRIR (/200k hrs)"}
+        )
+        fig_s.update_traces(hovertemplate="<b>%{y}</b><br>TRIR: %{x:.2f}")
         st.plotly_chart(fig_s, use_container_width=True)
 
-        # Top sectors
+        # 🔝 Top Sectors by TRIR
         df_secs = (
             df_all[df_all["year"] == latest_year]
             .groupby("sector_macro")
@@ -545,28 +553,61 @@ with tab5:
             lambda r: safe_div(r.get("injuries", 0), r.get("hours", 0), 200000), axis=1
         )
         df_secs = df_secs.sort_values("TRIR", ascending=False).head(10)
+
         st.subheader(f"🏭 Top 10 Sectors by TRIR ({latest_year})")
-        fig_m = px.bar(df_secs, x="TRIR", y="sector_macro", orientation="h")
+        fig_m = px.bar(
+            df_secs, x="TRIR", y="sector_macro", orientation="h",
+            labels={"sector_macro": "Macro Sector", "TRIR": "TRIR (/200k hrs)"}
+        )
+        fig_m.update_traces(hovertemplate="<b>%{y}</b><br>TRIR: %{x:.2f}")
         st.plotly_chart(fig_m, use_container_width=True)
 
-        # Export
-        buffer_xlsx = io.BytesIO()
-        with pd.ExcelWriter(buffer_xlsx, engine="xlsxwriter") as writer:
-            df_all.to_excel(writer, index=False, sheet_name="Incidents")
-        st.download_button("⬇️ Download Excel", buffer_xlsx.getvalue(), "hse_report.xlsx")
+        # 📤 Export section
+        st.subheader("⬇️ Export Reports")
 
-        buffer_pdf = io.BytesIO()
-        doc = SimpleDocTemplate(buffer_pdf, pagesize=A4)
-        styles = getSampleStyleSheet()
-        elements = [Paragraph("📊 HSE Report", styles["Title"]), Spacer(1, 8)]
-        data = [df_states.columns.tolist()] + df_states.astype(str).values.tolist()
-        table = Table(data, repeatRows=1)
-        table.setStyle(TableStyle([
-            ("BACKGROUND", (0,0), (-1,0), colors.lightblue),
-            ("GRID", (0,0), (-1,-1), 0.25, colors.grey),
-        ]))
-        elements.append(table)
-        doc.build(elements)
-        st.download_button("⬇️ Download PDF", buffer_pdf.getvalue(), "hse_report.pdf")
+        c1, c2 = st.columns(2)
+
+        # Excel
+        with c1:
+            buffer_xlsx = io.BytesIO()
+            with pd.ExcelWriter(buffer_xlsx, engine="xlsxwriter") as writer:
+                df_all.to_excel(writer, index=False, sheet_name="Incidents")
+            st.download_button(
+                "📑 Download Excel", buffer_xlsx.getvalue(), "hse_report.xlsx"
+            )
+
+        # PDF
+        with c2:
+            buffer_pdf = io.BytesIO()
+            doc = SimpleDocTemplate(buffer_pdf, pagesize=A4)
+            styles = getSampleStyleSheet()
+            elements = [
+                Paragraph("📊 HSE Report", styles["Title"]),
+                Spacer(1, 12),
+                Paragraph(f"Top 10 States by TRIR ({latest_year})", styles["Heading2"]),
+                Spacer(1, 6)
+            ]
+            data = [df_states.columns.tolist()] + df_states.astype(str).values.tolist()
+            table = Table(data, repeatRows=1)
+            table.setStyle(TableStyle([
+                ("BACKGROUND", (0,0), (-1,0), colors.lightblue),
+                ("GRID", (0,0), (-1,-1), 0.25, colors.grey),
+            ]))
+            elements.append(table)
+            doc.build(elements)
+
+            st.download_button(
+                "📄 Download PDF", buffer_pdf.getvalue(), "hse_report.pdf"
+            )
+
+        # Compact info box
+        st.markdown("""
+        <div style='background:#f0f2f6;padding:12px;border-radius:8px;margin-top:10px'>
+        <b>📌 Export Guide</b><br>
+        • <b>Excel</b>: full incident dataset, pivot-ready<br>
+        • <b>PDF</b>: summary table with top states<br>
+        </div>
+        """, unsafe_allow_html=True)
+
     else:
         st.error("⚠️ No data available for Insights & Export.")
