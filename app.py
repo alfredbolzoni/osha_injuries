@@ -181,22 +181,25 @@ with tab1:
 # TAB 2 - STATES
 # -------------------------------------------------------------------
 with tab2:
-    st.header("State Analysis")
+    st.markdown(
+        "<h2 style='margin-bottom:0'>State Analysis</h2>",
+        unsafe_allow_html=True
+    )
 
-    # elenco stati
+    # Elenco stati
     states = sorted(df_regions["state_name"].dropna().unique().tolist())
     state_choice = st.selectbox("🗺️ Select a State:", states)
 
-    # filtro dataset
+    # Filtro dataset
     df_state = incidents_with_state()
     df_state = df_state[df_state["state_name"] == state_choice]
 
     if not df_state.empty:
-        # aggregati nazionale e stato
+        # Aggregati nazionale e stato
         nat_sum = incidents_with_state().sum(numeric_only=True)
         st_sum = df_state.sum(numeric_only=True)
 
-        # KPI con .get() per evitare KeyError
+        # KPI
         state_trir = safe_div(st_sum.get("injuries", 0), st_sum.get("hoursworked", 0), 200000)
         nat_trir   = safe_div(nat_sum.get("injuries", 0), nat_sum.get("hoursworked", 0), 200000)
 
@@ -208,16 +211,18 @@ with tab2:
 
         # KPI widgets
         c1, c2, c3 = st.columns(3)
-        c1.metric("💥 TRIR", state_trir, f"National: {nat_trir}")
-        c2.metric("📆 Severity", state_sev, f"National: {nat_sev}")
-        c3.metric("☠️ Fatality Rate", state_fat, f"National: {nat_fat}")
+        c1.metric("💥 TRIR", f"{state_trir:.2f}", f"National: {nat_trir:.2f}")
+        c2.metric("📆 Severity", f"{state_sev:.2f}", f"National: {nat_sev:.2f}")
+        c3.metric("☠️ Fatality Rate", f"{state_fat:.2f}", f"National: {nat_fat:.2f}")
 
         # Trend multi-anno
         df_trend = df_state.groupby("year")["injuries"].sum().reset_index()
         if not df_trend.empty:
             st.subheader(f"📈 Injury Trend in {state_choice}")
-            fig_state_trend = px.line(df_trend, x="year", y="injuries", markers=True,
-                                      labels={"year": "Year", "injuries": "Injuries"})
+            fig_state_trend = px.line(
+                df_trend, x="year", y="injuries", markers=True,
+                labels={"year": "Year", "injuries": "Injuries"}
+            )
             fig_state_trend.update_traces(hovertemplate="Year %{x}<br>Injuries: %{y:,}")
             st.plotly_chart(fig_state_trend, use_container_width=True)
 
@@ -231,8 +236,12 @@ with tab2:
             "employees": "sum"
         }).reset_index()
 
-        df_table["TRIR (/200k hrs)"] = (df_table["injuries"] / df_table["hoursworked"]).fillna(0) * 200000
-        df_table["Fatality Rate (/100k emp)"] = (df_table["fatalities"] / df_table["employees"]).fillna(0) * 100000
+        df_table["TRIR (/200k hrs)"] = (
+            df_table["injuries"] / df_table["hoursworked"]
+        ).fillna(0) * 200000
+        df_table["Fatality Rate (/100k emp)"] = (
+            df_table["fatalities"] / df_table["employees"]
+        ).fillna(0) * 100000
 
         if not df_table.empty:
             st.subheader(f"📋 Summary for {state_choice}")
@@ -247,11 +256,15 @@ with tab2:
                 use_container_width=True
             )
 
-        st.info("""
-        **How to read these indicators:**
-        - **Lost Days (DAFW)** → total days lost due to injuries with absence from work.  
-        - **TRIR (/200k hrs)** → injuries per 200,000 hours worked (~100 FTE-year).  
-        """)
+        # Compact info box
+        st.markdown("""
+        <div style='background:#f0f2f6;padding:12px;border-radius:8px;margin-top:10px'>
+        <b>📌 How to read indicators</b><br>
+        • <b>Lost Days (DAFW)</b> = total days lost due to absence from work<br>
+        • <b>TRIR (/200k hrs)</b> = injuries per 200,000 hours worked<br>
+        • <b>Fatality Rate (/100k emp)</b> = deaths per 100,000 employees
+        </div>
+        """, unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
 # TAB 3 - SECTORS
