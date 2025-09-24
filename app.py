@@ -270,8 +270,12 @@ with tab2:
 # TAB 3 - SECTORS
 # -------------------------------------------------------------------
 with tab3:
-    st.header("Sector Analysis")
+    st.markdown(
+        "<h2 style='margin-bottom:0'>Sector Analysis</h2>",
+        unsafe_allow_html=True
+    )
 
+    # Elenco macro settori
     macros = sorted(df_sectors["sector_macro"].dropna().unique().tolist())
     sector_choice = st.selectbox("🏭 Select a Macro Sector:", macros)
 
@@ -282,7 +286,7 @@ with tab3:
         nat_sum = incidents_with_state_sector().sum(numeric_only=True)
         sec_sum = df_sec.sum(numeric_only=True)
 
-        # KPI con .get() per evitare KeyError
+        # KPI
         sec_trir = safe_div(sec_sum.get("injuries", 0), sec_sum.get("hoursworked", 0), 200000)
         nat_trir = safe_div(nat_sum.get("injuries", 0), nat_sum.get("hoursworked", 0), 200000)
 
@@ -294,9 +298,9 @@ with tab3:
 
         # KPI widgets
         c1, c2, c3 = st.columns(3)
-        c1.metric("💥 TRIR", sec_trir, f"National: {nat_trir}")
-        c2.metric("📆 Severity", sec_sev, f"National: {nat_sev}")
-        c3.metric("☠️ Fatality Rate", sec_fat, f"National: {nat_fat}")
+        c1.metric("💥 TRIR", f"{sec_trir:.2f}", f"National: {nat_trir:.2f}")
+        c2.metric("📆 Severity", f"{sec_sev:.2f}", f"National: {nat_sev:.2f}")
+        c3.metric("☠️ Fatality Rate", f"{sec_fat:.2f}", f"National: {nat_fat:.2f}")
 
         # Top risky sub-sectors (NAICS 3-digit)
         df_sec["naics3"] = df_sec["naics_code"].astype(str).str[:3]
@@ -310,17 +314,22 @@ with tab3:
 
         if not top_sub.empty:
             st.subheader(f"🏭 Top 10 Risky Sub-sectors in {sector_choice}")
-            fig_sub = px.bar(top_sub, x="naics3", y="injuries",
-                             labels={"naics3": "NAICS (3-digit)", "injuries": "Injuries"})
+            fig_sub = px.bar(
+                top_sub, x="naics3", y="injuries",
+                labels={"naics3": "NAICS (3-digit)", "injuries": "Injuries"}
+            )
             fig_sub.update_traces(hovertemplate="NAICS %{x}<br>Injuries: %{y:,}")
             st.plotly_chart(fig_sub, use_container_width=True)
 
-            st.info("""
-            **Reading NAICS codes:**
-            - **2 digits** identify the macro sector (e.g., `23` = Construction).  
-            - **3 digits** identify the sub-sector (e.g., `236` = Building Construction).  
-            - Value shown = total injuries recorded in that sub-sector.  
-            """)
+        # Compact info box
+        st.markdown("""
+        <div style='background:#f0f2f6;padding:12px;border-radius:8px;margin-top:10px'>
+        <b>📌 Reading NAICS codes</b><br>
+        • <b>2 digits</b> = macro sector (e.g. 23 = Construction)<br>
+        • <b>3 digits</b> = sub-sector (e.g. 236 = Building Construction)<br>
+        • Value shown = total injuries recorded
+        </div>
+        """, unsafe_allow_html=True)
 
         # Incident rate per macro sector
         df_rate = incidents_with_state_sector()
@@ -338,8 +347,10 @@ with tab3:
 
             if not rate.empty:
                 st.subheader("⚖️ Injury Rate by Macro Sector (injuries / 1000 employees)")
-                fig_rate = px.bar(rate, x="Incident Rate (/1000 emp)", y="sector_macro", orientation="h",
-                                  labels={"sector_macro": "Macro Sector"})
+                fig_rate = px.bar(
+                    rate, x="Incident Rate (/1000 emp)", y="sector_macro", orientation="h",
+                    labels={"sector_macro": "Macro Sector"}
+                )
                 fig_rate.update_traces(hovertemplate="<b>%{y}</b><br>Rate: %{x}")
                 st.plotly_chart(fig_rate, use_container_width=True)
 
