@@ -86,6 +86,27 @@ def safe_div(num, den, factor=1.0, ndigits=2):
     return round((num / den) * factor, ndigits)
 
 # ==============================
+# KPI Helpers
+# ==============================
+def calc_trir(injuries, hours):
+    """Total Recordable Incident Rate (/200k hours)"""
+    return safe_div(injuries, hours, 200000)
+
+def calc_severity(days, hours):
+    """Severity Rate (/200k hours)"""
+    return safe_div(days, hours, 200000)
+
+def calc_fatality(fatalities, employees):
+    """Fatality Rate (/100k employees)"""
+    return safe_div(fatalities, employees, 100000)
+
+def fmt(val, ndigits=2):
+    """Format numbers with thousand separator and fixed decimals"""
+    try:
+        return f"{val:,.{ndigits}f}"
+    except Exception:
+        return str(val)
+# ==============================
 # Tabs
 # ==============================
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
