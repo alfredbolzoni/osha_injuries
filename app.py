@@ -215,8 +215,15 @@ with tab1:
             st.plotly_chart(fig_trend, use_container_width=True)
 
         # Map by selected year
-        years = grp["year"].astype(int).tolist()
-        sel_year = st.selectbox("📅 Select a Year:", years, index=len(years)-1 if years else 0)
+        # Fetch distinct years directly from Supabase
+            years_df = sb_select("incidents", select="year", limit=None)
+            years = sorted(years_df["year"].dropna().unique().astype(int).tolist())
+
+            if years:
+                selected_year = st.selectbox("📅 Select a Year:", years, index=len(years)-1)
+            else:
+                selected_year = None
+                st.warning("⚠️ No year data available.")
 
         df_y = incidents_with_state()
         if not df_y.empty:
